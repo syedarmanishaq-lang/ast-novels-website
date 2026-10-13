@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /Securesex/
+Disallow: /securesex/
 
 Sitemap: https://ast-novels.vercel.app/sitemap.xml
