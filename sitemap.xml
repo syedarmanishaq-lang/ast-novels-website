@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://ast-novels.vercel.app/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://ast-novels.vercel.app/library.html</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://ast-novels.vercel.app/about.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://ast-novels.vercel.app/privacy-policy.html</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=gift-of-the-magi</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=the-tell-tale-heart</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=chandni-raat</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=pride-and-prejudice</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=frankenstein</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=dracula</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=alice-in-wonderland</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=sherlock-holmes</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=moby-dick</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=treasure-island</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=toba-tek-singh</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=khol-do</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=thanda-gosht</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=iqbal-selected-poetry</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://ast-novels.vercel.app/novel.html?id=ghalib-selected-ghazals</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+</urlset>
