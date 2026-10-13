@@ -293,6 +293,35 @@ body{top:0!important}
 .skiptranslate iframe{display:none!important}
 .goog-te-gadget-icon{display:none!important}
 
+/* ---------- small-screen refinements (added 2026-10-13) ---------- */
+@media (max-width:600px){
+  /* reader bar: back + scrollable tools on row 1, title on row 2 */
+  .reader-bar-inner{flex-wrap:wrap;row-gap:8px;padding:10px 14px}
+  .reader-bar .back{font-size:13px}
+  .reader-bar .r-title{order:3;flex:1 1 100%;text-align:left;font-size:13.5px;white-space:normal}
+  .reader-tools{flex:1;min-width:0;max-width:100%;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .reader-tools::-webkit-scrollbar{display:none}
+  .tool-btn{flex:none;min-height:42px;padding:8px 11px;font-size:12.5px}
+  select.tool-btn{max-width:132px}
+  .quote-band blockquote{font-size:24px}
+  .reader-nav{flex-direction:column}
+  .reader-nav .next{text-align:left}
+  .bookmark-fab{bottom:20px;right:20px;width:52px;height:52px}
+}
+@media (max-width:480px){
+  /* keep brand + hamburger + translate on one row */
+  #google_translate_element .goog-te-gadget .goog-te-combo{max-width:96px;font-size:11px}
+  .nav-inner{padding:12px 16px;gap:14px}
+  .brand-name{font-size:21px}
+  .hero-cta .btn{flex:1;text-align:center}
+  .book-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px}
+  .book-title{font-size:17px}
+  .feat-card h3{font-size:20px}
+  .chapter-row{padding:14px 16px;gap:12px}
+  .chapter-row .ch-num{min-width:34px;font-size:17px}
+  .install-banner{padding:14px 14px;gap:12px}
+}
+
 /* ---------- responsive ---------- */
 @media (max-width:960px){
   .hero-inner{grid-template-columns:1fr;padding:70px 28px 80px}
