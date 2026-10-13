@@ -190,7 +190,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(250,246,238,.94);backdrop-f
 .reader{min-height:100vh;transition:background .3s,color .3s}
 .reader[data-theme="day"]{--rbg:#FAF6EE;--rfg:#1C1814;--rmut:#8A7D68;--rline:#E3D9C2;--rbar:#FFFDF8}
 .reader[data-theme="sepia"]{--rbg:#F2E8CF;--rfg:#4E3D28;--rmut:#97805F;--rline:#E0D2AE;--rbar:#F8F1DE}
-.reader[data-theme="night"]{--rbg:#14110D;--rfg:#D9CFB6;--rmut:#8D8168;--rline:#2C2620;--rbar:#1D1915}
+.reader[data-theme="night"]{--rbg:#0F0D0A;--rfg:#E8DCC3;--rmut:#9A8D74;--rline:#2A251E;--rbar:#171310}
 .reader{background:var(--rbg);color:var(--rfg)}
 .reader-bar{position:sticky;top:0;z-index:60;background:var(--rbar);border-bottom:1px solid var(--rline)}
 .reader-bar-inner{max-width:900px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:12px}
@@ -278,18 +278,20 @@ footer{background:var(--ink);color:#B9AC8D;margin-top:0}
 .offline-hero h1{font-family:var(--serif-display);font-size:42px;margin-bottom:12px}
 .offline-hero p{color:var(--muted);max-width:480px;margin:0 auto 28px}
 
-/* ---------- translate widget ---------- */
-#google_translate_element{margin-left:4px}
-#google_translate_element .goog-te-gadget{font-family:var(--sans)!important;font-size:0}
+/* ---------- translate widget (compact & elegant) ---------- */
+#google_translate_element{margin-left:4px;display:inline-flex;align-items:center}
+#google_translate_element .goog-te-gadget{font-family:var(--sans)!important;font-size:0!important;line-height:1}
 #google_translate_element .goog-te-gadget .goog-te-combo{
-  font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-soft);
-  border:1.5px solid var(--line);border-radius:999px;padding:7px 12px;background:var(--card);
-  outline:none;cursor:pointer;max-width:150px;
+  font-family:var(--sans);font-size:12px;font-weight:500;color:var(--ink-soft);
+  border:1px solid var(--line);border-radius:999px;padding:5px 10px;background:var(--card);
+  outline:none;cursor:pointer;max-width:130px;height:28px;
 }
 #google_translate_element .goog-te-gadget .goog-te-combo:hover{border-color:var(--accent)}
+#google_translate_element .goog-te-gadget span{display:none!important}
 .goog-te-banner-frame,.goog-te-balloon-frame{display:none!important}
 body{top:0!important}
 .skiptranslate iframe{display:none!important}
+.goog-te-gadget-icon{display:none!important}
 
 /* ---------- responsive ---------- */
 @media (max-width:960px){
