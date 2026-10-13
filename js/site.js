@@ -10,9 +10,66 @@
     });
   }
 
-  /* Load catalog, applying admin localStorage overrides (staged edits).
-     Public view: drafts and trashed novels are hidden. */
+  /* ---------- Supabase (live) with local JSON fallback ---------- */
+  var SB = window.ASTSupa;
+
+  /* Normalize a Supabase novels row to the shape the renderers expect. */
+  function normNovel(r){
+    var n = {
+      _id: r.id,
+      slug: r.slug,
+      title: r.title,
+      title_en: r.title_en,
+      author: r.author,
+      author_en: r.author_en,
+      language: r.lang || 'en',
+      genre: r.genre,
+      description: r.description,
+      cover: r.cover_url,
+      featured: !!r.featured,
+      status: r.status || 'published',
+      chapterCount: (r.chapters && r.chapters[0] && r.chapters[0].count) || 0,
+      wordCount: r.word_count || 0,
+      views: r.views || 0,
+      published_year: r.published_year,
+      tags: r.tags || []
+    };
+    if(r.source_type === 'supabase_pdf' && r.source_id){
+      n.source = { provider: 'supabase_pdf', path: r.source_id };
+    } else if(r.source_type === 'gdrive' && r.source_id){
+      n.source = { provider: 'gdrive', fileId: r.source_id };
+    } else if(r.source_type === 'url' && r.source_id){
+      n.source = { provider: 'url', url: r.source_id };
+    }
+    return n;
+  }
+
+  function sbCatalog(){
+    return SB.get('/rest/v1/novels?status=eq.published&select=*,chapters(count)&order=featured.desc,updated_at.desc')
+      .then(function(rows){ return rows.map(normNovel); });
+  }
+
+  function sbNovel(slug){
+    return SB.get('/rest/v1/novels?slug=eq.' + encodeURIComponent(slug) + '&select=*')
+      .then(function(rows){
+        if(!rows.length || rows[0].status !== 'published') throw new Error('not-found');
+        var r = rows[0];
+        return SB.get('/rest/v1/chapters?novel_id=eq.' + r.id + '&select=title,content,position,word_count&order=position')
+          .then(function(chs){
+            var n = normNovel(r);
+            n.chapters = chs.map(function(c){ return { title: c.title, text: c.content }; });
+            n.chapterCount = chs.length;
+            return n;
+          });
+      });
+  }
+
+  /* Load catalog: Supabase first, local JSON fallback (offline/PWA). */
   function loadCatalog(){
+    if(!SB) return localCatalog();
+    return sbCatalog().catch(function(){ return localCatalog(); });
+  }
+  function localCatalog(){
     return fetchJSON('data/novels/index.json').then(function(list){
       var ov = AN.listOverrides();
       var trashed = AN.listTrash();
@@ -53,23 +110,29 @@
     return w;
   }
 
-  /* Full novel (with chapters), honoring overrides.
-     Drafts and trashed novels are not publicly readable. */
+  /* Full novel (with chapters): Supabase first, local JSON fallback. */
   function loadNovel(slug){
     if(AN.isTrashed(slug)) return Promise.reject(new Error('trashed'));
     var ov = AN.getOverride(slug);
     if(ov && ov.status === 'draft') return Promise.reject(new Error('draft'));
     if(ov && ov.chapters) return Promise.resolve(ov);
+    if(SB) return sbNovel(slug).catch(function(){ return localNovel(slug); });
+    return localNovel(slug);
+  }
+  function localNovel(slug){
     return fetchJSON('data/novels/' + slug + '.json');
   }
 
-  /* Per-novel view counter (localStorage; shown in admin dashboard). */
-  function countView(slug){
+  /* View counter: server-side via safe RPC + local fallback. */
+  function countView(slug, novelId){
     try{
       var k = 'ast_views_' + slug;
       var v = parseInt(localStorage.getItem(k) || '0', 10) || 0;
       localStorage.setItem(k, String(v + 1));
     }catch(e){}
+    if(SB && novelId){
+      SB.rpc('increment_views', { novel_id: novelId }).catch(function(){});
+    }
   }
 
   /* ---------- card builders ---------- */
@@ -197,7 +260,7 @@
     var slug = new URLSearchParams(location.search).get('id');
     if(!slug){ root.innerHTML = '<div class="empty-state"><div class="big">Novel not found</div><p>The link may be broken.</p><p style="margin-top:18px"><a class="btn btn-ghost" href="library.html">Browse library</a></p></div>'; return; }
     loadNovel(slug).then(function(n){
-      countView(slug);
+      countView(slug, n._id);
       var u = isUrdu(n);
       var prog = getProgress(slug);
       var read = readChapters(slug);
