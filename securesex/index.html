@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AST Novels — Admin Panel</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1C1814">
@@ -18,7 +18,7 @@
     <h1>Admin login</h1>
     <p class="auth-sub">Restricted area. If you are not Luffy, please leave.</p>
     <label>Email<input type="email" id="login-user" autocomplete="username" placeholder="admin@astnovels.app"></label>
-    <label>Password<input type="password" id="login-pass" autocomplete="current-password"></label>
+    <label>Password<input type="password" id="login-pass" autocomplete="current-password" placeholder="••••••••"></label>
     <button class="btn primary" id="login-btn">Log in</button>
     <p class="auth-error hidden" id="login-error">Wrong email or password.</p>
     <p class="auth-note">Everything you save here goes <strong>live instantly</strong> on the website — no export needed.</p>
@@ -27,12 +27,24 @@
 
 <!-- ============ ADMIN APP ============ -->
 <div id="admin-app" class="hidden">
-  <aside class="sidebar">
-    <div class="side-brand">AST NOVELS <span>admin</span></div>
-    <nav>
+
+  <!-- mobile top bar -->
+  <div class="topbar">
+    <button class="icon-menu" id="nav-toggle" aria-label="Open menu">☰</button>
+    <div class="tb-brand">AST NOVELS <small>admin</small></div>
+  </div>
+  <div class="nav-backdrop" id="nav-backdrop"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand">AST NOVELS <span>admin</span>
+      <button class="side-close" id="nav-close" aria-label="Close menu">✕</button>
+    </div>
+    <nav id="side-nav">
       <button data-view="dashboard" class="nav-btn active">📊 Dashboard</button>
       <button data-view="novels" class="nav-btn">📚 Novels</button>
       <button data-view="editor" class="nav-btn" id="nav-add">➕ Add novel</button>
+      <button data-view="authors" class="nav-btn">👥 Authors</button>
+      <button data-view="reviews" class="nav-btn">⭐ Reviews <span class="badge hidden" id="reviews-badge"></span></button>
       <button data-view="trash" class="nav-btn">🗑️ Trash <span class="badge hidden" id="trash-badge"></span></button>
       <button data-view="guide" class="nav-btn">📖 Publishing guide</button>
       <button data-view="settings" class="nav-btn">⚙️ Settings</button>
@@ -48,7 +60,7 @@
 
     <!-- DASHBOARD -->
     <section id="view-dashboard" class="view">
-      <h2>Dashboard</h2>
+      <div class="view-head"><h2>Dashboard</h2></div>
       <div class="stats-grid" id="stats-grid"></div>
       <div class="panel">
         <h3>Most viewed novels</h3>
@@ -64,7 +76,7 @@
     <section id="view-novels" class="view hidden">
       <div class="view-head">
         <h2>Novels</h2>
-        <button class="btn primary" id="add-novel-btn">➕ Add novel</button>
+        <div><button class="btn primary" id="add-novel-btn">➕ Add novel</button></div>
       </div>
       <div class="filters">
         <input type="search" id="novel-search" placeholder="🔍 Search title or author…">
@@ -85,6 +97,7 @@
           <tbody id="novel-rows"></tbody>
         </table>
       </div>
+      <div class="novel-cards" id="novel-cards"></div>
     </section>
 
     <!-- EDITOR -->
@@ -102,7 +115,7 @@
           <div class="form-grid">
             <label>Title *<input type="text" id="f-title" placeholder="e.g. ٹوبہ ٹیک سنگھ"></label>
             <label>Title (English)<input type="text" id="f-title-en" placeholder="e.g. Toba Tek Singh"></label>
-            <label>Author *<input type="text" id="f-author" placeholder="e.g. سعادت حسن منٹو"></label>
+            <label>Author *<input type="text" id="f-author" placeholder="e.g. سعادت حسن منٹو" list="authors-datalist"></label>
             <label>Author (English)<input type="text" id="f-author-en" placeholder="e.g. Saadat Hasan Manto"></label>
             <label>Language *<select id="f-lang"><option value="ur">Urdu</option><option value="en">English</option></select></label>
             <label>Genre<input type="text" id="f-genre" placeholder="e.g. افسانہ / Classic"></label>
@@ -112,6 +125,7 @@
             <label>Status<select id="f-status"><option value="published">Published</option><option value="draft">Draft</option></select></label>
             <label>Slug (auto)<input type="text" id="f-slug" placeholder="auto-generated"></label>
           </div>
+          <datalist id="authors-datalist"></datalist>
           <label>Description<textarea id="f-desc" rows="3" placeholder="Short description for the novel page…"></textarea></label>
 
           <h3 style="margin-top:1.5rem">Cover image</h3>
@@ -119,7 +133,7 @@
             <img id="cover-preview" class="cover-preview" alt="Cover preview">
             <div>
               <input type="file" id="f-cover" accept="image/*">
-              <p class="hint">JPG/PNG, portrait 2:3 works best. The file is exported with your JSON — place it in <code>img/covers/</code>.</p>
+              <p class="hint">JPG/PNG, portrait 2:3 works best. Uploads to the covers library on save.</p>
             </div>
           </div>
 
@@ -165,9 +179,33 @@
       </div>
     </section>
 
+    <!-- AUTHORS -->
+    <section id="view-authors" class="view hidden">
+      <div class="view-head">
+        <h2>Authors</h2>
+        <div><button class="btn primary" id="add-author-btn">➕ Add author</button></div>
+      </div>
+      <p class="hint" style="margin-bottom:18px">Author profiles appear on the site. Tip: type an author's name in the novel editor's <em>Author</em> field and it will suggest from this list.</p>
+      <div class="author-grid" id="author-grid"></div>
+    </section>
+
+    <!-- REVIEWS -->
+    <section id="view-reviews" class="view hidden">
+      <div class="view-head">
+        <h2>Reviews</h2>
+        <div class="chip-row" id="review-filters">
+          <button class="btn small primary" data-rf="pending">⏳ Pending</button>
+          <button class="btn small" data-rf="approved">✅ Approved</button>
+          <button class="btn small" data-rf="all">All</button>
+        </div>
+      </div>
+      <p class="hint" style="margin-bottom:18px">Only <strong>approved</strong> reviews are visible on the public site.</p>
+      <div id="review-list"></div>
+    </section>
+
     <!-- TRASH -->
     <section id="view-trash" class="view hidden">
-      <h2>Trash</h2>
+      <div class="view-head"><h2>Trash</h2></div>
       <p class="hint">Deleted novels stay here until you permanently remove them. They are hidden from the public site.</p>
       <div class="table-wrap">
         <table class="novel-table">
@@ -175,11 +213,12 @@
           <tbody id="trash-rows"></tbody>
         </table>
       </div>
+      <div class="novel-cards" id="trash-cards"></div>
     </section>
 
     <!-- GUIDE -->
     <section id="view-guide" class="view hidden">
-      <h2>📖 Publishing guide</h2>
+      <div class="view-head"><h2>📖 Publishing guide</h2></div>
       <div class="panel guide">
         <h3>How to publish (live database)</h3>
         <ol>
@@ -193,6 +232,11 @@
           <li>Upload the PDF in the <em>PDF / Book file</em> section of the novel editor.</li>
           <li>Readers read it <strong>inside the site</strong> with the built-in PDF reader — page by page, with day/sepia/night themes.</li>
           <li>Text files (.txt) work too — they are split into chapters automatically.</li>
+        </ol>
+        <h3>Authors &amp; reviews</h3>
+        <ol>
+          <li>Add author profiles under <strong>👥 Authors</strong> — name, photo and bio.</li>
+          <li>Reader reviews arrive under <strong>⭐ Reviews</strong> — approve the good ones; only approved reviews show on the site.</li>
         </ol>
         <h3>Google Drive novels</h3>
         <ol>
@@ -210,7 +254,7 @@
 
     <!-- SETTINGS -->
     <section id="view-settings" class="view hidden">
-      <h2>Settings</h2>
+      <div class="view-head"><h2>Settings</h2></div>
       <div class="panel">
         <h3>Import novel JSON</h3>
         <p class="hint">Load a novel <code>.json</code> file (same format as <code>data/novels/</code>) into the admin for editing.</p>
@@ -218,7 +262,7 @@
       </div>
       <div class="panel">
         <h3>Change password</h3>
-        <label>New password (min 8 characters)<input type="password" id="set-new"></label>
+        <label>New password (min 8 characters)<input type="password" id="set-new" placeholder="New password"></label>
         <button class="btn primary" id="change-pass-btn">Change password</button>
       </div>
       <div class="panel danger">
@@ -228,6 +272,29 @@
       </div>
     </section>
   </main>
+</div>
+
+<!-- AUTHOR MODAL -->
+<div id="author-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="author-modal-title">Add author</h3>
+      <button class="icon-btn" id="author-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <label>Name *<input type="text" id="a-name" placeholder="e.g. سعادت حسن منٹو"></label>
+        <label>Name (English)<input type="text" id="a-name-en" placeholder="e.g. Saadat Hasan Manto"></label>
+      </div>
+      <label>Photo URL<input type="text" id="a-photo" placeholder="https://… (optional)"></label>
+      <label>Bio<textarea id="a-bio" rows="3" placeholder="Short biography…"></textarea></label>
+      <label>Bio (English)<textarea id="a-bio-en" rows="3" placeholder="Short biography in English…"></textarea></label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="author-modal-cancel">Cancel</button>
+      <button class="btn primary" id="author-save-btn">💾 Save author</button>
+    </div>
+  </div>
 </div>
 
 <!-- PREVIEW MODAL -->
