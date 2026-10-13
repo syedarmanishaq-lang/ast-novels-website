@@ -11,31 +11,17 @@
 </head>
 <body>
 
-<!-- ============ FIRST-RUN SETUP ============ -->
-<div id="setup-screen" class="auth-wrap hidden">
-  <div class="auth-card">
-    <div class="auth-brand">AST NOVELS</div>
-    <h1>Set up your admin access</h1>
-    <p class="auth-sub">This is the <strong>first and only time</strong> you do this. Choose a username and a strong password. They are stored <strong>only in this browser</strong> (hashed with SHA-256) — there is no default password.</p>
-    <label>Username<input type="text" id="setup-user" autocomplete="username" placeholder="e.g. luffy"></label>
-    <label>Password<input type="password" id="setup-pass" autocomplete="new-password" placeholder="Choose a strong password"></label>
-    <label>Confirm password<input type="password" id="setup-pass2" autocomplete="new-password" placeholder="Repeat it"></label>
-    <button class="btn primary" id="setup-btn">Create admin access</button>
-    <p class="auth-note">For maximum security, use the admin panel on your <strong>local copy</strong>, not the live site.</p>
-  </div>
-</div>
-
 <!-- ============ LOGIN ============ -->
 <div id="login-screen" class="auth-wrap hidden">
   <div class="auth-card">
     <div class="auth-brand">AST NOVELS</div>
     <h1>Admin login</h1>
     <p class="auth-sub">Restricted area. If you are not Luffy, please leave.</p>
-    <label>Username<input type="text" id="login-user" autocomplete="username"></label>
+    <label>Email<input type="email" id="login-user" autocomplete="username" placeholder="admin@astnovels.app"></label>
     <label>Password<input type="password" id="login-pass" autocomplete="current-password"></label>
     <button class="btn primary" id="login-btn">Log in</button>
-    <p class="auth-error hidden" id="login-error">Wrong username or password.</p>
-    <p class="auth-note">For maximum security, use the admin panel on your <strong>local copy</strong>, not the live site.</p>
+    <p class="auth-error hidden" id="login-error">Wrong email or password.</p>
+    <p class="auth-note">Everything you save here goes <strong>live instantly</strong> on the website — no export needed.</p>
   </div>
 </div>
 
@@ -58,7 +44,7 @@
   </aside>
 
   <main class="content">
-    <div class="security-banner">🔒 <strong>Security note:</strong> for maximum security, use this admin panel on your <strong>local copy</strong> of the site, not the live URL. Workflow: edit here → <strong>Export</strong> → place files in <code>data/novels/</code> → push to GitHub → Vercel redeploys.</div>
+    <div class="security-banner">🔒 <strong>Live database:</strong> everything you save here is stored in Supabase and appears on the website <strong>instantly</strong>. Published = visible to readers right away.</div>
 
     <!-- DASHBOARD -->
     <section id="view-dashboard" class="view">
@@ -120,6 +106,9 @@
             <label>Author (English)<input type="text" id="f-author-en" placeholder="e.g. Saadat Hasan Manto"></label>
             <label>Language *<select id="f-lang"><option value="ur">Urdu</option><option value="en">English</option></select></label>
             <label>Genre<input type="text" id="f-genre" placeholder="e.g. افسانہ / Classic"></label>
+            <label>Tags (comma separated)<input type="text" id="f-tags" placeholder="e.g. classic, romance, urdu adab"></label>
+            <label>Published year<input type="number" id="f-year" placeholder="e.g. 1948" min="0" max="2100"></label>
+            <label class="check-row">Featured on home <input type="checkbox" id="f-featured"></label>
             <label>Status<select id="f-status"><option value="published">Published</option><option value="draft">Draft</option></select></label>
             <label>Slug (auto)<input type="text" id="f-slug" placeholder="auto-generated"></label>
           </div>
@@ -134,10 +123,20 @@
             </div>
           </div>
 
+          <h3 style="margin-top:1.5rem">PDF / Book file <span class="hint-inline">(optional)</span></h3>
+          <p class="hint">Upload a <strong>PDF</strong> (or .txt) of the novel. Readers will read it <strong>inside the site</strong> — page by page, no download needed. If you also add chapters below, the chapters are used; otherwise the PDF is the book.</p>
+          <div class="cover-row">
+            <div>
+              <input type="file" id="f-pdf" accept=".pdf,.txt,application/pdf,text/plain">
+              <p class="hint" id="pdf-name"></p>
+              <button class="btn small" id="f-pdf-clear" type="button">✕ Remove PDF</button>
+            </div>
+          </div>
+
           <h3 style="margin-top:1.5rem">External source <span class="hint-inline">(optional)</span></h3>
           <p class="hint">Host the novel text on Google Drive or any direct link instead of pasting chapters. The reader fetches and displays it <strong>inside the site</strong> — visitors never leave.</p>
           <div class="form-grid">
-            <label>Source type<select id="f-src-type"><option value="">None — chapters below</option><option value="gdrive">Google Drive file</option><option value="url">Direct text/JSON URL</option></select></label>
+            <label>Source type<select id="f-src-type"><option value="">None — chapters below</option><option value="supabase_pdf">PDF uploaded here ↑</option><option value="gdrive">Google Drive file</option><option value="url">Direct text/JSON URL</option></select></label>
             <label>Drive file ID / URL<input type="text" id="f-src-id" placeholder="Paste Drive share link or file ID"></label>
           </div>
           <p class="hint">For Drive: share the file as <strong>“Anyone with the link”</strong>, then paste the share link — the file ID is extracted automatically. You also need a free Google Drive API key (see Publishing guide).</p>
@@ -182,12 +181,18 @@
     <section id="view-guide" class="view hidden">
       <h2>📖 Publishing guide</h2>
       <div class="panel guide">
-        <h3>How to publish (the full workflow)</h3>
+        <h3>How to publish (live database)</h3>
         <ol>
-          <li><strong>Edit here</strong> — add or edit novels in this admin panel. Everything is saved in this browser.</li>
-          <li><strong>Export</strong> — click <em>📤 Export all</em> (or per-novel Export). You get the JSON files + cover images.</li>
-          <li><strong>Place files</strong> — copy the JSON files into <code>data/novels/</code> and covers into <code>img/covers/</code> of your local site copy.</li>
-          <li><strong>Push to GitHub</strong> — commit &amp; push. Vercel redeploys automatically. Your novels are live. 🎉</li>
+          <li><strong>Add novel</strong> — fill in title, author, description, and upload a cover image.</li>
+          <li><strong>Add content</strong> — either paste chapters below (bulk import supported), <strong>upload a PDF</strong> of the book, or link a Google Drive file.</li>
+          <li><strong>Save</strong> — choose <em>Published</em> and hit <strong>💾 Save novel</strong>. It appears on the website <strong>instantly</strong>. 🎉</li>
+          <li><strong>Drafts</strong> stay hidden until you publish them.</li>
+        </ol>
+        <h3>PDF novels</h3>
+        <ol>
+          <li>Upload the PDF in the <em>PDF / Book file</em> section of the novel editor.</li>
+          <li>Readers read it <strong>inside the site</strong> with the built-in PDF reader — page by page, with day/sepia/night themes.</li>
+          <li>Text files (.txt) work too — they are split into chapters automatically.</li>
         </ol>
         <h3>Google Drive novels</h3>
         <ol>
@@ -196,8 +201,8 @@
           <li>Get a free <strong>Drive API key</strong> (Google Cloud Console → enable Drive API → create API key) and put it in <code>js/reader.js</code> as <code>DRIVE_API_KEY</code>.</li>
           <li>The reader fetches the text through Google's API and renders it inside your site — visitors never see Drive.</li>
         </ol>
-        <h3>Import</h3>
-        <p>Use <em>Settings → Import JSON</em> to load a novel JSON file (e.g. one you edited by hand) into the admin.</p>
+        <h3>Backups</h3>
+        <p>Use <em>📥</em> on any novel (or Export all) to download a JSON backup of your library.</p>
         <h3>Your secret admin URL</h3>
         <p>This panel lives at <code id="guide-path">/securesex/</code>. To change it to your own secret word, <strong>rename this folder</strong> (e.g. to <code>/manage-blue-mango-42/</code>) in your site files and redeploy. Keep the new URL to yourself — it is your first layer of protection, the password is the second.</p>
       </div>
@@ -213,14 +218,13 @@
       </div>
       <div class="panel">
         <h3>Change password</h3>
-        <label>Current password<input type="password" id="set-cur"></label>
-        <label>New password<input type="password" id="set-new"></label>
+        <label>New password (min 8 characters)<input type="password" id="set-new"></label>
         <button class="btn primary" id="change-pass-btn">Change password</button>
       </div>
       <div class="panel danger">
-        <h3>Reset admin</h3>
-        <p class="hint">Clears the saved login and ALL staged novels from this browser. The live site is not affected.</p>
-        <button class="btn danger" id="reset-btn">Reset everything</button>
+        <h3>Sign out</h3>
+        <p class="hint">Ends your admin session on this device. The live site is not affected.</p>
+        <button class="btn danger" id="reset-btn">Sign out</button>
       </div>
     </section>
   </main>
@@ -239,6 +243,7 @@
 
 <div id="toast" class="toast hidden"></div>
 
+<script src="../js/sb.js"></script>
 <script src="js/admin.js"></script>
 </body>
 </html>
