@@ -110,6 +110,10 @@
     } else if(src.provider === 'url'){
       url = src.url;
       label = 'linked file';
+    } else if(src.provider === 'supabase_pdf'){
+      // PDF/TXT uploaded to the Supabase "books" bucket via the admin panel.
+      url = (window.ASTSupa ? window.ASTSupa.publicUrl('books', src.path) : src.path);
+      label = 'library file';
     } else {
       return Promise.resolve(null);
     }
