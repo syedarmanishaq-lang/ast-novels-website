@@ -1,31 +1,11 @@
 /* ============================================================================
-   ADMIN_SETUP — READ THIS FIRST (Luffy, plain language)
-
-   1) YOUR SECRET ADMIN URL
-      This admin panel does NOT live at /admin/ (too easy to guess).
-      It lives at:  /securesex/
-      To make it truly yours, rename this folder to any secret word you like,
-      for example:  /manage-blue-mango-42/
-      Then redeploy (push to GitHub → Vercel). Keep the new URL to yourself.
-      If you rename the folder, also update ADMIN_PATH below and the
-      Disallow line in robots.txt.
-
-   2) YOUR PASSWORD — there is NO default password, and none is written here.
-      The FIRST time you open the admin page, it asks you to CREATE your own
-      username + password. It is hashed with SHA-256 and stored only in your
-      browser (localStorage). Nobody can read it from the site files.
-
-   3) HOW PUBLISHING WORKS (static site — the admin cannot write to the server)
-      Edit here → Export (download JSON + covers) → copy files into
-      data/novels/ and img/covers/ on your local copy → push to GitHub →
-      Vercel redeploys automatically. The guide inside the panel explains it.
-
-   4) SECURITY NOTE — shown in the panel too:
-      For maximum security, use the admin panel on your LOCAL copy
-      (localhost), not the live https URL.
+   AST NOVELS — Admin panel (Supabase edition)
+   Login: Supabase Auth (email + password). Everything saves LIVE to the
+   database — no export/push needed. Published novels appear on the site
+   instantly.
+   Admin login: admin@astnovels.app (password kept by Luffy).
    ============================================================================ */
-const ADMIN_PATH = 'securesex'; // <-- change if you rename this folder
-
+'use strict';
 /* ---------------- utils ---------------- */
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -35,14 +15,8 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.remove('hidden');
   clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.add('hidden'), 2600);
+  t._h = setTimeout(() => t.classList.add('hidden'), 2800);
 }
-
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
-const pwHash = (user, pass) => sha256('ast-novels-admin::' + user + '::' + pass);
 
 function slugify(s) {
   return String(s || '').toLowerCase().trim()
@@ -61,142 +35,96 @@ function download(filename, content, mime) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
-function dataURLtoBlob(dataURL) {
-  const [head, data] = dataURL.split(',');
-  const mime = head.match(/:(.*?);/)[1];
-  const bin = atob(data);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-
 function extractDriveId(input) {
   if (!input) return '';
   const s = String(input).trim();
-  let m = s.match(/[-\w]{25,}/);
-  // prefer the /d/<id>/ pattern from share links
   const dm = s.match(/\/d\/([-\w]{10,})/);
   if (dm) return dm[1];
   if (/^[-\w]{10,}$/.test(s)) return s;
+  const m = s.match(/[-\w]{25,}/);
   return m ? m[0] : s;
 }
 
-/* ---------------- auth ---------------- */
-const LS_AUTH = 'ast_admin_auth';
-const getAuth = () => { try { return JSON.parse(localStorage.getItem(LS_AUTH)); } catch { return null; } };
+/* ---------------- Supabase session ---------------- */
+const SB = window.ASTSupa;
+const LS_TOKEN = 'ast_sb_token';
+let novels = [];        // all novels from DB (with chapter counts)
+let editingId = null;   // uuid of novel being edited
+let editingSlug = null;
+let editorChapters = [];
+let editorCoverFile = null;
+let editorCoverURL = '';
+let editorPdfFile = null;
+let editorPdfPath = ''; // existing books/ path when editing
 
+const token = () => sessionStorage.getItem(LS_TOKEN);
+
+async function sbGet(path) { return SB.get(path, token()); }
+async function sbPost(path, json, prefer) { return SB.post(path, json, token(), prefer); }
+async function sbPatch(path, json) { return SB.patch(path, json, token()); }
+async function sbDel(path) { return SB.del(path, token()); }
+
+/* ---------------- auth ---------------- */
 function showScreen(which) {
-  $('setup-screen').classList.toggle('hidden', which !== 'setup');
   $('login-screen').classList.toggle('hidden', which !== 'login');
   $('admin-app').classList.toggle('hidden', which !== 'app');
 }
 
-async function initAuth() {
-  if (!getAuth()) { showScreen('setup'); wireSetup(); return; }
-  showScreen('login'); wireLogin();
-}
-
-function wireSetup() {
-  $('setup-btn').onclick = async () => {
-    const u = $('setup-user').value.trim();
-    const p1 = $('setup-pass').value, p2 = $('setup-pass2').value;
-    if (!u || !p1) return toast('Please enter a username and password.');
-    if (p1 !== p2) return toast('Passwords do not match.');
-    if (p1.length < 6) return toast('Password must be at least 6 characters.');
-    const hash = await pwHash(u, p1);
-    localStorage.setItem(LS_AUTH, JSON.stringify({ user: u, hash, created: Date.now() }));
-    toast('Admin access created. Please log in.');
-    showScreen('login'); wireLogin();
-  };
-}
-
-function wireLogin() {
+function initAuth() {
+  if (token()) { enterApp(); return; }
+  showScreen('login');
   const go = async () => {
-    const u = $('login-user').value.trim();
-    const p = $('login-pass').value;
-    const auth = getAuth();
-    const hash = await pwHash(u, p);
-    if (auth && u === auth.user && hash === auth.hash) {
-      sessionStorage.setItem('ast_admin_session', '1');
+    const email = $('login-user').value.trim();
+    const pass = $('login-pass').value;
+    if (!email || !pass) return toast('Enter your email and password.');
+    $('login-btn').disabled = true;
+    $('login-btn').textContent = 'Logging in…';
+    try {
+      const s = await SB.signIn(email, pass);
+      sessionStorage.setItem(LS_TOKEN, s.access_token);
+      toast('Welcome back.');
       enterApp();
-    } else {
+    } catch (e) {
       $('login-error').classList.remove('hidden');
+      $('login-btn').disabled = false;
+      $('login-btn').textContent = 'Log in';
     }
   };
   $('login-btn').onclick = go;
   $('login-pass').onkeydown = (e) => { if (e.key === 'Enter') go(); };
 }
 
-/* ---------------- store ---------------- */
-const LS_NOVELS = 'ast_admin_novels';   // staged edits, keyed by slug
-const LS_TRASH = 'ast_admin_trash';     // soft-deleted novels
-let BASE = [];        // from data/novels/index.json
-let baseNovels = {};  // slug -> full novel JSON (fetched lazily)
-let staged = {};      // slug -> novel (overrides)
-let trash = {};       // slug -> novel
-
-function loadLocal() {
-  try { staged = JSON.parse(localStorage.getItem(LS_NOVELS) || '{}'); } catch { staged = {}; }
-  try { trash = JSON.parse(localStorage.getItem(LS_TRASH) || '{}'); } catch { trash = {}; }
-}
-function persistLocal() {
-  localStorage.setItem(LS_NOVELS, JSON.stringify(staged));
-  localStorage.setItem(LS_TRASH, JSON.stringify(trash));
+function logout() {
+  SB.signOut(token());
+  sessionStorage.removeItem(LS_TOKEN);
+  location.reload();
 }
 
-async function loadBase() {
-  try {
-    const r = await fetch('../data/novels/index.json');
-    BASE = await r.json();
-  } catch { BASE = []; }
-}
-
-async function getNovel(slug) {
-  if (staged[slug]) return staged[slug];
-  if (trash[slug]) return trash[slug];
-  if (!baseNovels[slug]) {
-    const r = await fetch(`../data/novels/${slug}.json`);
-    baseNovels[slug] = await r.json();
-  }
-  return baseNovels[slug];
-}
-
-/** All novels visible in admin (base + staged), excluding trash. */
-function allNovels() {
-  const map = {};
-  for (const e of BASE) map[e.slug] = { ...e, _base: true };
-  for (const [slug, n] of Object.entries(staged)) {
-    map[slug] = { ...indexEntryOf(n), _base: !!map[slug], _staged: true };
-  }
-  return Object.values(map).filter(n => !trash[n.slug]);
-}
-
-function indexEntryOf(n) {
-  const wc = (n.chapters || []).reduce((a, c) => a + String(c.text || '').split(/\s+/).filter(Boolean).length, 0);
+/* ---------------- data ---------------- */
+function normRow(r) {
+  const c = (r.chapters && r.chapters[0] && r.chapters[0].count) || 0;
   return {
-    slug: n.slug, title: n.title, title_en: n.title_en, author: n.author,
-    author_en: n.author_en, language: n.language, genre: n.genre,
-    description: n.description, cover: n.cover, featured: !!n.featured,
-    sample: !!n.sample, status: n.status || 'published',
-    chapterCount: (n.chapters || []).length, wordCount: wc,
+    id: r.id, slug: r.slug, title: r.title, title_en: r.title_en,
+    author: r.author, author_en: r.author_en, language: r.lang || 'en',
+    genre: r.genre, description: r.description, cover: r.cover_url,
+    featured: !!r.featured, status: r.status || 'published',
+    chapterCount: c, wordCount: r.word_count || 0, views: r.views || 0,
+    tags: r.tags || [], published_year: r.published_year,
+    source_type: r.source_type, source_id: r.source_id,
+    updated_at: r.updated_at,
   };
 }
 
-/** Novels as the PUBLIC site sees them (published only, staged overrides applied). */
-function publicNovels() {
-  return allNovels().filter(n => (n.status || 'published') === 'published');
+async function loadNovels() {
+  const rows = await sbGet('/rest/v1/novels?select=*,chapters(count)&order=updated_at.desc');
+  novels = rows.map(normRow);
 }
 
-function getViews(slug) {
-  return parseInt(localStorage.getItem('ast_views_' + slug) || '0', 10) || 0;
+async function getNovelChapters(id) {
+  return sbGet('/rest/v1/chapters?novel_id=eq.' + id + '&select=title,content,position&order=position');
 }
 
-/* ---------------- part 2: navigation, dashboard, novel list ---------------- */
-let editingSlug = null;
-let editorChapters = [];
-let editorCoverDataURL = null;
-let editorCoverName = null;
-
+/* ---------------- navigation ---------------- */
 function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
   $('view-' + name).classList.remove('hidden');
@@ -204,13 +132,13 @@ function switchView(name) {
   if (name === 'dashboard') renderDashboard();
   if (name === 'novels') renderNovelList();
   if (name === 'trash') renderTrash();
-  if (name === 'guide') $('guide-path').textContent = '/' + ADMIN_PATH + '/';
 }
 
 function enterApp() {
   showScreen('app');
-  loadLocal();
-  loadBase().then(() => { switchView('dashboard'); });
+  loadNovels().then(() => switchView('dashboard')).catch((e) => {
+    toast('Could not load novels: ' + e.message);
+  });
   document.querySelectorAll('.nav-btn').forEach(b => {
     b.onclick = () => {
       if (b.dataset.view === 'editor' && b.id === 'nav-add') openEditor(null);
@@ -218,26 +146,27 @@ function enterApp() {
     };
   });
   $('add-novel-btn').onclick = () => openEditor(null);
-  $('logout-btn').onclick = () => { sessionStorage.removeItem('ast_admin_session'); location.reload(); };
+  $('logout-btn').onclick = logout;
   $('export-all-btn').onclick = exportAll;
   wireEditor();
   wireSettings();
 }
 
+/* ---------------- dashboard ---------------- */
 function renderDashboard() {
-  const novels = allNovels();
-  const pub = novels.filter(n => (n.status || 'published') === 'published');
-  const drafts = novels.filter(n => n.status === 'draft');
-  const chapters = novels.reduce((a, n) => a + (n.chapterCount || 0), 0);
-  const words = novels.reduce((a, n) => a + (n.wordCount || 0), 0);
-  const views = novels.reduce((a, n) => a + getViews(n.slug), 0);
-  const trashCount = Object.keys(trash).length;
+  const live = novels.filter(n => n.status !== 'trash');
+  const pub = live.filter(n => n.status === 'published');
+  const drafts = live.filter(n => n.status === 'draft');
+  const chapters = live.reduce((a, n) => a + (n.chapterCount || 0), 0);
+  const words = live.reduce((a, n) => a + (n.wordCount || 0), 0);
+  const views = live.reduce((a, n) => a + (n.views || 0), 0);
+  const trashCount = novels.filter(n => n.status === 'trash').length;
   const tb = $('trash-badge');
   tb.textContent = trashCount;
   tb.classList.toggle('hidden', !trashCount);
 
   $('stats-grid').innerHTML = [
-    ['📚', novels.length, 'Total novels'],
+    ['📚', live.length, 'Total novels'],
     ['✅', pub.length, 'Published'],
     ['📝', drafts.length, 'Drafts'],
     ['📄', chapters, 'Chapters'],
@@ -245,93 +174,105 @@ function renderDashboard() {
     ['👁️', views.toLocaleString(), 'Total views'],
   ].map(([i, n, l]) => `<div class="stat"><div class="num">${n}</div><div class="lbl">${i} ${l}</div></div>`).join('');
 
-  const top = [...novels].sort((a, b) => getViews(b.slug) - getViews(a.slug)).slice(0, 5);
+  const top = [...live].sort((a, b) => b.views - a.views).slice(0, 5);
   $('top-viewed').innerHTML = top.length
     ? '<table class="novel-table"><tbody>' + top.map(n =>
-        `<tr><td>${esc(n.title)}</td><td>${getViews(n.slug).toLocaleString()} views</td>
-         <td><span class="badge ${n.status === 'draft' ? 'draft' : 'pub'}">${n.status || 'published'}</span></td></tr>`).join('') + '</tbody></table>'
+        `<tr><td>${esc(n.title)}</td><td>${(n.views || 0).toLocaleString()} views</td>
+         <td><span class="badge ${n.status === 'draft' ? 'draft' : 'pub'}">${n.status}</span></td></tr>`).join('') + '</tbody></table>'
     : '<p class="hint">No views recorded yet.</p>';
 
-  $('recent-list').innerHTML = novels.slice(0, 5).map(n =>
+  $('recent-list').innerHTML = live.slice(0, 5).map(n =>
     `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><strong>${esc(n.title)}</strong>
      <span class="hint">— ${esc(n.author || '')} · ${n.chapterCount || 0} chapters</span></div>`).join('')
     || '<p class="hint">No novels yet.</p>';
 }
 
-function statusBadge(n) {
-  const s = n.status || 'published';
-  return `<span class="badge ${s === 'draft' ? 'draft' : 'pub'}">${s}</span>${n._staged ? ' <span class="badge">edited</span>' : ''}`;
+function statusBadge(s) {
+  return `<span class="badge ${s === 'draft' ? 'draft' : 'pub'}">${s}</span>`;
 }
 
+/* ---------------- novel list ---------------- */
 function renderNovelList() {
   const q = ($('novel-search').value || '').toLowerCase();
   const lang = $('filter-lang').value;
   const status = $('filter-status').value;
-  const rows = allNovels().filter(n => {
+  const rows = novels.filter(n => {
+    if (n.status === 'trash') return false;
     if (q && !(n.title + ' ' + (n.title_en || '') + ' ' + n.author).toLowerCase().includes(q)) return false;
     if (lang && n.language !== lang) return false;
-    if (status && (n.status || 'published') !== status) return false;
+    if (status && n.status !== status) return false;
     return true;
   });
   $('novel-rows').innerHTML = rows.map(n => `<tr>
-    <td>${n.cover ? `<img class="thumb" src="${n.cover.startsWith('data:') ? n.cover : '../' + n.cover}" alt="">` : ''}</td>
+    <td>${n.cover ? `<img class="thumb" src="${esc(n.cover)}" alt="" loading="lazy">` : ''}</td>
     <td><strong>${esc(n.title)}</strong>${n.title_en ? `<br><span class="hint">${esc(n.title_en)}</span>` : ''}</td>
     <td>${esc(n.author || '')}</td>
     <td>${n.language === 'ur' ? 'Urdu' : 'English'}</td>
     <td>${n.chapterCount || 0}</td>
-    <td>${getViews(n.slug).toLocaleString()}</td>
-    <td>${statusBadge(n)}</td>
+    <td>${(n.views || 0).toLocaleString()}</td>
+    <td>${statusBadge(n.status)}</td>
     <td><div class="row-actions">
       <button class="btn small" onclick="openEditor('${n.slug}')">✏️ Edit</button>
       <button class="btn small" onclick="previewNovel('${n.slug}')">👁️</button>
-      <button class="btn small" onclick="toggleStatus('${n.slug}')">${(n.status || 'published') === 'draft' ? '🚀 Publish' : '📝 Draft'}</button>
-      <button class="btn small" onclick="exportNovel('${n.slug}')">📤</button>
+      <button class="btn small" onclick="toggleStatus('${n.slug}')">${n.status === 'draft' ? '🚀 Publish' : '📝 Draft'}</button>
+      <button class="btn small" onclick="exportNovel('${n.slug}')">📥</button>
       <button class="btn small" onclick="trashNovel('${n.slug}')">🗑️</button>
     </div></td>
   </tr>`).join('') || '<tr><td colspan="8" class="hint">No novels match.</td></tr>';
 }
 
-async function ensureStaged(slug) {
-  if (!staged[slug]) staged[slug] = await getNovel(slug);
-  return staged[slug];
-}
+function findNovel(slug) { return novels.find(n => n.slug === slug); }
 
 async function toggleStatus(slug) {
-  const n = await ensureStaged(slug);
-  n.status = (n.status || 'published') === 'draft' ? 'published' : 'draft';
-  persistLocal(); renderNovelList(); renderDashboard();
-  toast(n.status === 'draft' ? 'Moved to draft (hidden from public).' : 'Published.');
+  const n = findNovel(slug);
+  if (!n) return;
+  const next = n.status === 'draft' ? 'published' : 'draft';
+  try {
+    await sbPatch('/rest/v1/novels?id=eq.' + n.id, { status: next });
+    n.status = next;
+    renderNovelList(); renderDashboard();
+    toast(next === 'published' ? '🚀 Published — live on the site now.' : 'Moved to draft (hidden from public).');
+  } catch (e) { toast('Failed: ' + e.message); }
 }
 
 async function trashNovel(slug) {
-  if (!confirm('Move "' + slug + '" to trash? It will be hidden from the public site.')) return;
-  const n = await getNovel(slug);
-  trash[slug] = { ...n, _deletedAt: Date.now() };
-  delete staged[slug];
-  persistLocal(); renderNovelList(); renderDashboard();
-  toast('Moved to trash.');
+  const n = findNovel(slug);
+  if (!n) return;
+  if (!confirm('Move "' + n.title + '" to trash? It will be hidden from the public site.')) return;
+  try {
+    await sbPatch('/rest/v1/novels?id=eq.' + n.id, { status: 'trash' });
+    n.status = 'trash';
+    renderNovelList(); renderDashboard();
+    toast('Moved to trash.');
+  } catch (e) { toast('Failed: ' + e.message); }
 }
 
 async function previewNovel(slug) {
-  const n = await getNovel(slug);
+  const n = findNovel(slug);
+  if (!n) return;
   const rtl = n.language === 'ur' ? 'rtl' : '';
-  const cover = n.coverData || (n.cover ? (n.cover.startsWith('data:') ? n.cover : '../' + n.cover) : '');
+  let chHtml = '';
+  try {
+    const chs = await getNovelChapters(n.id);
+    chHtml = chs.slice(0, 3).map(c => `<h4>${esc(c.title)}</h4><p>${esc(String(c.content || '').slice(0, 400))}…</p>`).join('')
+      + (chs.length > 3 ? `<p class="hint">…and ${chs.length - 3} more chapters</p>` : '');
+  } catch (e) { chHtml = '<p class="hint">Could not load chapters.</p>'; }
+  const srcNote = n.source_type === 'supabase_pdf' ? '<p class="hint">📕 PDF attached (read inside the site)</p>'
+    : n.source_type === 'gdrive' ? '<p class="hint">📎 External source: Google Drive</p>'
+    : n.source_type === 'url' ? '<p class="hint">📎 External source: direct URL</p>' : '';
   $('preview-body').innerHTML = `
     <div class="${rtl}">
-      ${cover ? `<img class="pv-cover" src="${cover}" alt="">` : ''}
+      ${n.cover ? `<img class="pv-cover" src="${esc(n.cover)}" alt="">` : ''}
       <h2 style="font-family:Georgia,serif">${esc(n.title)}</h2>
-      <p class="hint">by ${esc(n.author || '')} · ${(n.chapters || []).length} chapters · ${esc(n.status || 'published')}</p>
+      <p class="hint">by ${esc(n.author || '')} · ${n.chapterCount || 0} chapters · ${esc(n.status)}</p>
       <p>${esc(n.description || '')}</p>
-      ${n.source && n.source.fileId ? `<p class="hint">📎 External source: Google Drive (ID hidden from readers)</p>` : ''}
-      ${n.source && n.source.url ? `<p class="hint">📎 External source: direct URL</p>` : ''}
-      <hr>
-      ${(n.chapters || []).slice(0, 3).map(c => `<h4>${esc(c.title)}</h4><p>${esc(String(c.text || '').slice(0, 400))}…</p>`).join('')}
-      ${(n.chapters || []).length > 3 ? `<p class="hint">…and ${(n.chapters || []).length - 3} more chapters</p>` : ''}
+      ${srcNote}
+      <hr>${chHtml}
     </div>`;
   $('preview-modal').classList.remove('hidden');
 }
 
-/* ---------------- part 3: novel editor ---------------- */
+/* ---------------- editor ---------------- */
 function wireEditor() {
   $('save-novel-btn').onclick = saveEditor;
   $('preview-btn').onclick = () => previewFromEditor();
@@ -343,15 +284,27 @@ function wireEditor() {
   $('f-cover').onchange = (e) => {
     const f = e.target.files[0];
     if (!f) return;
-    editorCoverName = f.name;
+    editorCoverFile = f;
     const r = new FileReader();
-    r.onload = () => { editorCoverDataURL = r.result; $('cover-preview').src = r.result; };
+    r.onload = () => { $('cover-preview').src = r.result; };
     r.readAsDataURL(f);
+    toast('Cover selected — it uploads when you save.');
+  };
+  $('f-pdf').onchange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    editorPdfFile = f;
+    $('pdf-name').textContent = '📕 ' + f.name + ' (' + Math.round(f.size / 1024) + ' KB) — uploads on save.';
+    toast('PDF selected — it uploads when you save.');
+  };
+  $('f-pdf-clear').onclick = () => {
+    editorPdfFile = null; editorPdfPath = '';
+    $('f-pdf').value = ''; $('pdf-name').textContent = '';
+    toast('PDF attachment removed.');
   };
   $('f-title').oninput = () => {
-    if (!editingSlug) $('f-slug').value = slugify($('f-title').value);
+    if (!editingId) $('f-slug').value = slugify($('f-title').value);
   };
-  // Drive link auto-extract
   $('f-src-id').oninput = () => {
     const v = $('f-src-id').value;
     if ($('f-src-type').value === 'gdrive' && /drive\.google\.com|docs\.google\.com/.test(v)) {
@@ -359,7 +312,6 @@ function wireEditor() {
       if (id && id !== v) { $('f-src-id').value = id; toast('Drive file ID extracted.'); }
     }
   };
-  // Drive test preview (admin-only iframe; readers never see Drive)
   $('test-drive-btn').onclick = () => {
     const id = extractDriveId($('f-src-id').value.trim());
     if ($('f-src-type').value !== 'gdrive' || !id) {
@@ -373,17 +325,22 @@ function wireEditor() {
 }
 
 async function openEditor(slug) {
-  editingSlug = slug;
+  editingId = null; editingSlug = slug;
   editorChapters = [];
-  editorCoverDataURL = null;
-  editorCoverName = null;
+  editorCoverFile = null; editorCoverURL = '';
+  editorPdfFile = null; editorPdfPath = '';
   $('editor-title').textContent = slug ? 'Edit novel' : 'Add novel';
   $('bulk-box').classList.add('hidden');
   $('bulk-text').value = '';
   $('drive-test-box').classList.add('hidden');
   $('drive-test-frame').removeAttribute('src');
+  $('pdf-name').textContent = '';
+  $('f-pdf').value = '';
+  $('f-cover').value = '';
   if (slug) {
-    const n = await getNovel(slug);
+    const n = findNovel(slug);
+    if (!n) return toast('Novel not found.');
+    editingId = n.id;
     $('f-title').value = n.title || '';
     $('f-title-en').value = n.title_en || '';
     $('f-author').value = n.author || '';
@@ -393,25 +350,39 @@ async function openEditor(slug) {
     $('f-status').value = n.status || 'published';
     $('f-slug').value = n.slug;
     $('f-desc').value = n.description || '';
-    editorChapters = (n.chapters || []).map(c => ({ title: c.title, text: c.text }));
-    if (n.coverData) { editorCoverDataURL = n.coverData; $('cover-preview').src = n.coverData; }
-    else if (n.cover) $('cover-preview').src = n.cover.startsWith('data:') ? n.cover : '../' + n.cover;
+    $('f-tags').value = (n.tags || []).join(', ');
+    $('f-year').value = n.published_year || '';
+    $('f-featured').checked = !!n.featured;
+    editorCoverURL = n.cover || '';
+    if (editorCoverURL) $('cover-preview').src = editorCoverURL;
     else $('cover-preview').removeAttribute('src');
-    if (n.source?.provider === 'gdrive') {
+    if (n.source_type === 'gdrive') {
       $('f-src-type').value = 'gdrive';
-      $('f-src-id').value = n.source.fileId || '';
-    } else if (n.source?.provider === 'url') {
+      $('f-src-id').value = n.source_id || '';
+    } else if (n.source_type === 'url') {
       $('f-src-type').value = 'url';
-      $('f-src-id').value = n.source.url || '';
+      $('f-src-id').value = n.source_id || '';
+    } else if (n.source_type === 'supabase_pdf') {
+      $('f-src-type').value = 'supabase_pdf';
+      editorPdfPath = n.source_id || '';
+      $('pdf-name').textContent = '📕 Attached: ' + editorPdfPath.split('/').pop();
     } else {
       $('f-src-type').value = '';
       $('f-src-id').value = '';
     }
+    toast('Loading chapters…');
+    try {
+      const chs = await getNovelChapters(n.id);
+      editorChapters = chs.map(c => ({ title: c.title, text: c.content }));
+    } catch (e) {
+      toast('Could not load chapters: ' + e.message);
+    }
   } else {
-    ['f-title', 'f-title-en', 'f-author', 'f-author-en', 'f-genre', 'f-slug', 'f-desc', 'f-src-id'].forEach(id => $(id).value = '');
+    ['f-title', 'f-title-en', 'f-author', 'f-author-en', 'f-genre', 'f-slug', 'f-desc', 'f-src-id', 'f-tags', 'f-year'].forEach(id => $(id).value = '');
     $('f-lang').value = 'ur';
     $('f-status').value = 'draft';
     $('f-src-type').value = '';
+    $('f-featured').checked = false;
     $('cover-preview').removeAttribute('src');
     editorChapters = [{ title: 'Chapter 1', text: '' }];
   }
@@ -455,7 +426,6 @@ function bulkImport() {
   if (!raw.trim()) return toast('Paste some text first.');
   const parts = raw.split(/^===\s*(.+?)\s*===\s*$/m);
   const imported = [];
-  // parts[0] is text before first separator
   if (parts[0].trim()) imported.push({ title: 'Chapter ' + (editorChapters.length + 1), text: parts[0].trim() });
   for (let i = 1; i < parts.length; i += 2) {
     const title = (parts[i] || '').trim() || 'Untitled';
@@ -472,148 +442,182 @@ function bulkImport() {
   toast(imported.length + ' chapters imported.');
 }
 
-function collectEditor() {
-  const slug = ($('f-slug').value.trim() || slugify($('f-title').value));
-  const srcType = $('f-src-type').value;
-  const srcVal = $('f-src-id').value.trim();
-  const novel = {
-    slug,
-    title: $('f-title').value.trim(),
-    title_en: $('f-title-en').value.trim() || undefined,
-    author: $('f-author').value.trim(),
-    author_en: $('f-author-en').value.trim() || undefined,
-    language: $('f-lang').value,
-    genre: $('f-genre').value.trim(),
-    description: $('f-desc').value.trim(),
-    cover: editorCoverName ? 'img/covers/' + editorCoverName : (editingSlug ? (staged[editingSlug]?.cover || baseNovels[editingSlug]?.cover || '') : ''),
-    status: $('f-status').value,
-    featured: editingSlug ? !!(staged[editingSlug]?.featured ?? baseNovels[editingSlug]?.featured) : false,
-    sample: editingSlug ? !!(staged[editingSlug]?.sample ?? baseNovels[editingSlug]?.sample) : false,
-    chapters: editorChapters.filter(c => c.text.trim()).map(c => ({ title: c.title.trim() || 'Untitled', text: c.text })),
-  };
-  if (editorCoverDataURL) {
-    novel.coverData = editorCoverDataURL;
-    novel.coverName = editorCoverName;
-  }
-  if (srcType === 'gdrive' && srcVal) {
-    novel.source = { provider: 'gdrive', fileId: extractDriveId(srcVal) };
-  } else if (srcType === 'url' && srcVal) {
-    novel.source = { provider: 'url', url: srcVal };
-  }
-  // drop undefined
-  Object.keys(novel).forEach(k => novel[k] === undefined && delete novel[k]);
-  return novel;
-}
+function countWords(t) { return String(t || '').trim().split(/\s+/).filter(Boolean).length; }
 
-function saveEditor() {
-  const novel = collectEditor();
-  if (!novel.title) return toast('Title is required.');
-  if (!novel.author) return toast('Author is required.');
-  if (editingSlug && novel.slug !== editingSlug) {
-    // slug changed: drop old
-    delete staged[editingSlug];
+async function saveEditor() {
+  const title = $('f-title').value.trim();
+  const author = $('f-author').value.trim();
+  if (!title) return toast('Title is required.');
+  if (!author) return toast('Author is required.');
+  const slug = ($('f-slug').value.trim() || slugify(title));
+  const btn = $('save-novel-btn');
+  btn.disabled = true;
+  btn.textContent = '💾 Saving…';
+  try {
+    // 1. upload cover if a new file was chosen
+    let coverURL = editorCoverURL;
+    if (editorCoverFile) {
+      const ext = (editorCoverFile.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 4);
+      const path = slug + '/' + Date.now() + '.' + ext;
+      coverURL = await SB.upload('covers', path, editorCoverFile, token());
+    }
+    // 2. upload PDF if chosen
+    const srcType = $('f-src-type').value;
+    const srcVal = $('f-src-id').value.trim();
+    let source_type = 'text', source_id = null;
+    if (editorPdfFile) {
+      const path = slug + '/' + Date.now() + '-' + editorPdfFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      await SB.upload('books', path, editorPdfFile, token());
+      source_type = 'supabase_pdf'; source_id = path;
+    } else if (srcType === 'supabase_pdf' && editorPdfPath) {
+      source_type = 'supabase_pdf'; source_id = editorPdfPath;
+    } else if (srcType === 'gdrive' && srcVal) {
+      source_type = 'gdrive'; source_id = extractDriveId(srcVal);
+    } else if (srcType === 'url' && srcVal) {
+      source_type = 'url'; source_id = srcVal;
+    }
+    // 3. build novel row
+    const chapters = editorChapters.filter(c => c.text.trim())
+      .map(c => ({ title: (c.title || '').trim() || 'Untitled', text: c.text }));
+    const tags = $('f-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+    const year = parseInt($('f-year').value, 10);
+    const row = {
+      slug,
+      title,
+      title_en: $('f-title-en').value.trim() || null,
+      author,
+      author_en: $('f-author-en').value.trim() || null,
+      lang: $('f-lang').value,
+      genre: $('f-genre').value.trim() || null,
+      description: $('f-desc').value.trim() || null,
+      cover_url: coverURL || null,
+      status: $('f-status').value,
+      featured: $('f-featured').checked,
+      tags,
+      published_year: isNaN(year) ? null : year,
+      word_count: chapters.reduce((a, c) => a + countWords(c.text), 0),
+      source_type,
+      source_id,
+      updated_at: new Date().toISOString(),
+    };
+    let novelId = editingId;
+    if (editingId) {
+      await sbPatch('/rest/v1/novels?id=eq.' + editingId, row);
+    } else {
+      const created = await sbPost('/rest/v1/novels', row, 'return=representation');
+      novelId = created[0].id;
+    }
+    // 4. replace chapters
+    if (editingId) {
+      await sbDel('/rest/v1/chapters?novel_id=eq.' + novelId);
+    }
+    if (chapters.length) {
+      const rows = chapters.map((c, i) => ({
+        novel_id: novelId, title: c.title, content: c.text,
+        position: i, word_count: countWords(c.text),
+      }));
+      for (let b = 0; b < rows.length; b += 50) {
+        await sbPost('/rest/v1/chapters', rows.slice(b, b + 50));
+      }
+    }
+    await loadNovels();
+    editingId = novelId; editingSlug = slug;
+    $('f-slug').value = slug;
+    editorCoverURL = coverURL; editorCoverFile = null;
+    editorPdfFile = null;
+    if (source_type === 'supabase_pdf') editorPdfPath = source_id;
+    $('pdf-name').textContent = source_type === 'supabase_pdf' ? '📕 Attached: ' + String(source_id).split('/').pop() : '';
+    renderDashboard();
+    toast(row.status === 'published' ? '🚀 Published — live on the site now!' : '💾 Saved as draft.');
+  } catch (e) {
+    toast('Save failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Save novel';
   }
-  staged[novel.slug] = novel;
-  persistLocal();
-  editingSlug = novel.slug;
-  $('f-slug').value = novel.slug;
-  toast('Saved. Export to publish it live.');
-  renderDashboard();
 }
 
 function previewFromEditor() {
-  const n = collectEditor();
-  const rtl = n.language === 'ur' ? 'rtl' : '';
-  const cover = editorCoverDataURL || '';
+  const rtl = $('f-lang').value === 'ur' ? 'rtl' : '';
+  const chs = editorChapters.filter(c => c.text.trim());
   $('preview-body').innerHTML = `
     <div class="${rtl}">
-      ${cover ? `<img class="pv-cover" src="${cover}" alt="">` : ''}
-      <h2 style="font-family:Georgia,serif">${esc(n.title) || '(untitled)'}</h2>
-      <p class="hint">by ${esc(n.author || '')} · ${n.chapters.length} chapters</p>
-      <p>${esc(n.description || '')}</p>
-      ${n.source ? `<p class="hint">📎 External source attached (${esc(n.source.provider)})</p>` : ''}
+      ${$('cover-preview').src ? `<img class="pv-cover" src="${esc($('cover-preview').src)}" alt="">` : ''}
+      <h2 style="font-family:Georgia,serif">${esc($('f-title').value) || '(untitled)'}</h2>
+      <p class="hint">by ${esc($('f-author').value)} · ${chs.length} chapters</p>
+      <p>${esc($('f-desc').value)}</p>
+      ${editorPdfFile || editorPdfPath ? '<p class="hint">📕 PDF attached</p>' : ''}
       <hr>
-      ${n.chapters.slice(0, 2).map(c => `<h4>${esc(c.title)}</h4><p>${esc(String(c.text).slice(0, 400))}…</p>`).join('')}
-      ${n.chapters.length > 2 ? `<p class="hint">…and ${n.chapters.length - 2} more chapters</p>` : ''}
+      ${chs.slice(0, 2).map(c => `<h4>${esc(c.title)}</h4><p>${esc(String(c.text).slice(0, 400))}…</p>`).join('')}
+      ${chs.length > 2 ? `<p class="hint">…and ${chs.length - 2} more chapters</p>` : ''}
     </div>`;
   $('preview-modal').classList.remove('hidden');
 }
 
-/* ---------------- part 4: trash, export/import, settings, init ---------------- */
+/* ---------------- trash ---------------- */
 function renderTrash() {
-  const rows = Object.values(trash);
-  $('trash-rows').innerHTML = rows.map(n => {
-    const cover = n.coverData || (n.cover && !n.cover.startsWith('data:') ? '../' + n.cover : n.cover);
-    return `<tr>
-    <td>${cover ? `<img class="thumb" src="${cover}" alt="">` : ''}</td>
+  const rows = novels.filter(n => n.status === 'trash');
+  $('trash-rows').innerHTML = rows.map(n => `<tr>
+    <td>${n.cover ? `<img class="thumb" src="${esc(n.cover)}" alt="" loading="lazy">` : ''}</td>
     <td><strong>${esc(n.title)}</strong></td>
     <td>${esc(n.author || '')}</td>
-    <td class="hint">${n._deletedAt ? new Date(n._deletedAt).toLocaleDateString() : ''}</td>
+    <td class="hint">${n.updated_at ? new Date(n.updated_at).toLocaleDateString() : ''}</td>
     <td><div class="row-actions">
       <button class="btn small" onclick="restoreNovel('${n.slug}')">♻️ Restore</button>
       <button class="btn small" onclick="purgeNovel('${n.slug}')">🔥 Delete forever</button>
     </div></td>
-  </tr>`;
-  }).join('') || '<tr><td colspan="5" class="hint">Trash is empty.</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="5" class="hint">Trash is empty.</td></tr>';
 }
 
-function restoreNovel(slug) {
-  const n = trash[slug];
-  delete n._deletedAt;
-  staged[slug] = n;
-  delete trash[slug];
-  persistLocal(); renderTrash(); renderDashboard();
-  toast('Restored.');
+async function restoreNovel(slug) {
+  const n = findNovel(slug);
+  if (!n) return;
+  try {
+    await sbPatch('/rest/v1/novels?id=eq.' + n.id, { status: 'draft' });
+    n.status = 'draft';
+    renderTrash(); renderDashboard();
+    toast('Restored as draft — publish when ready.');
+  } catch (e) { toast('Failed: ' + e.message); }
 }
 
-function purgeNovel(slug) {
-  if (!confirm('PERMANENTLY delete "' + slug + '"? This cannot be undone.')) return;
-  delete trash[slug];
-  persistLocal(); renderTrash(); renderDashboard();
-  toast('Deleted forever.');
+async function purgeNovel(slug) {
+  const n = findNovel(slug);
+  if (!n) return;
+  if (!confirm('PERMANENTLY delete "' + n.title + '" and all its chapters? This cannot be undone.')) return;
+  try {
+    await sbDel('/rest/v1/novels?id=eq.' + n.id);
+    novels = novels.filter(x => x.id !== n.id);
+    renderTrash(); renderDashboard();
+    toast('Deleted forever.');
+  } catch (e) { toast('Failed: ' + e.message); }
 }
 
-function cleanForExport(n) {
-  const c = { ...n };
-  delete c._deletedAt;
-  delete c.coverName;
-  // coverData stays out of the JSON file; exported separately as image
-  const coverData = c.coverData;
-  delete c.coverData;
-  return { json: c, coverData };
-}
-
-function exportNovel(slug) {
-  getNovel(slug).then(n => {
-    const { json, coverData } = cleanForExport(n);
+/* ---------------- backup export / import / settings ---------------- */
+async function exportNovel(slug) {
+  const n = findNovel(slug);
+  if (!n) return;
+  try {
+    const chs = await getNovelChapters(n.id);
+    const json = {
+      slug: n.slug, title: n.title, title_en: n.title_en, author: n.author,
+      author_en: n.author_en, language: n.language, genre: n.genre,
+      description: n.description, cover: n.cover, featured: n.featured,
+      status: n.status, source_type: n.source_type, source_id: n.source_id,
+      chapters: chs.map(c => ({ title: c.title, text: c.content })),
+    };
     download(slug + '.json', JSON.stringify(json, null, 2));
-    if (coverData && n.coverName) {
-      download(n.coverName, dataURLtoBlob(coverData));
-    } else if (coverData) {
-      const ext = coverData.startsWith('data:image/png') ? 'png' : 'jpg';
-      download(slug + '.' + ext, dataURLtoBlob(coverData));
-    }
-    toast('Exported ' + slug + '.json' + (coverData ? ' + cover image.' : ''));
-  });
+    toast('Downloaded ' + slug + '.json (backup).');
+  } catch (e) { toast('Export failed: ' + e.message); }
 }
 
-function exportAll() {
-  const novels = publicNovels();
-  const index = novels.map(indexEntryOf);
+async function exportAll() {
+  const live = novels.filter(n => n.status !== 'trash');
+  const index = live.map(n => ({
+    slug: n.slug, title: n.title, author: n.author, language: n.language,
+    genre: n.genre, description: n.description, cover: n.cover, featured: n.featured,
+  }));
   download('index.json', JSON.stringify(index, null, 2));
-  let i = 0;
-  const next = () => {
-    if (i >= novels.length) { toast('Exported index + ' + novels.length + ' novels.'); return; }
-    const n = novels[i++];
-    const { json, coverData } = cleanForExport(n);
-    download(n.slug + '.json', JSON.stringify(json, null, 2));
-    if (coverData) {
-      const ext = coverData.startsWith('data:image/png') ? 'png' : 'jpg';
-      setTimeout(() => download((n.coverName || n.slug + '.' + ext), dataURLtoBlob(coverData)), 300);
-    }
-    setTimeout(next, 600);
-  };
-  next();
+  toast('Downloaded index.json backup. Use 📥 per novel for full JSON.');
 }
 
 function wireSettings() {
@@ -625,41 +629,45 @@ function wireSettings() {
       try {
         const n = JSON.parse(r.result);
         if (!n.slug || !n.title) throw new Error('bad file');
-        staged[n.slug] = n;
-        persistLocal();
-        toast('Imported "' + n.title + '".');
-        renderDashboard();
+        openEditor(null);
+        $('f-title').value = n.title || '';
+        $('f-title-en').value = n.title_en || '';
+        $('f-author').value = n.author || '';
+        $('f-author-en').value = n.author_en || '';
+        $('f-lang').value = n.language || 'ur';
+        $('f-genre').value = n.genre || '';
+        $('f-slug').value = n.slug;
+        $('f-desc').value = n.description || '';
+        $('f-status').value = 'draft';
+        editorChapters = (n.chapters || []).map(c => ({ title: c.title, text: c.text }));
+        renderChapters();
+        switchView('editor');
+        toast('Imported "' + n.title + '" — review and save.');
       } catch { toast('Invalid novel JSON file.'); }
     };
     r.readAsText(f);
     e.target.value = '';
   };
   $('change-pass-btn').onclick = async () => {
-    const auth = getAuth();
-    const cur = $('set-cur').value, nw = $('set-new').value;
-    if ((await pwHash(auth.user, cur)) !== auth.hash) return toast('Current password is wrong.');
-    if (nw.length < 6) return toast('New password must be at least 6 characters.');
-    auth.hash = await pwHash(auth.user, nw);
-    localStorage.setItem(LS_AUTH, JSON.stringify(auth));
-    $('set-cur').value = $('set-new').value = '';
-    toast('Password changed.');
+    const nw = $('set-new').value;
+    if (nw.length < 8) return toast('New password must be at least 8 characters.');
+    try {
+      await SB.updatePassword(token(), nw);
+      $('set-new').value = '';
+      toast('Password changed.');
+    } catch (e) { toast('Failed: ' + e.message); }
   };
   $('reset-btn').onclick = () => {
-    if (!confirm('Reset admin? This clears the login AND all staged novels from this browser.')) return;
-    if (!confirm('Are you sure? This cannot be undone.')) return;
-    localStorage.removeItem(LS_AUTH);
-    localStorage.removeItem(LS_NOVELS);
-    localStorage.removeItem(LS_TRASH);
-    sessionStorage.removeItem('ast_admin_session');
-    location.reload();
+    if (!confirm('Sign out of the admin panel?')) return;
+    logout();
   };
 }
 
 /* ---------------- init ---------------- */
 document.addEventListener('DOMContentLoaded', () => {
-  if (sessionStorage.getItem('ast_admin_session') === '1' && getAuth()) {
-    enterApp();
-  } else {
-    initAuth();
+  if (!window.ASTSupa) {
+    document.body.innerHTML = '<p style="padding:40px">Could not load js/sb.js — check the file exists.</p>';
+    return;
   }
+  initAuth();
 });
