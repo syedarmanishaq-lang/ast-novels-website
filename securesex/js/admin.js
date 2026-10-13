@@ -59,6 +59,11 @@ let editorPdfPath = ''; // existing books/ path when editing
 
 const token = () => sessionStorage.getItem(LS_TOKEN);
 
+let authors = [];       // author profiles from DB
+let reviews = [];       // reader reviews from DB
+let editingAuthorId = null;
+let reviewFilter = 'pending';
+
 async function sbGet(path) { return SB.get(path, token()); }
 async function sbPost(path, json, prefer) { return SB.post(path, json, token(), prefer); }
 async function sbPatch(path, json) { return SB.patch(path, json, token()); }
@@ -129,16 +134,46 @@ function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
   $('view-' + name).classList.remove('hidden');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  document.body.classList.remove('nav-open');
   if (name === 'dashboard') renderDashboard();
   if (name === 'novels') renderNovelList();
+  if (name === 'authors') renderAuthors();
+  if (name === 'reviews') renderReviews();
   if (name === 'trash') renderTrash();
+  window.scrollTo(0, 0);
+}
+
+function emptyHTML(icon, title, sub) {
+  return `<div class="empty"><span class="e-icon">${icon}</span><div class="e-title">${esc(title)}</div><p>${esc(sub)}</p></div>`;
+}
+
+function showSkeletons() {
+  $('stats-grid').innerHTML = '<div class="skel" style="height:104px"></div>'.repeat(4);
+  $('top-viewed').innerHTML = '<div class="skel-row"><div class="skel" style="flex:1"></div><div class="skel" style="width:90px"></div></div>'
+    + '<div class="skel-row"><div class="skel" style="flex:1"></div><div class="skel" style="width:70px"></div></div>'
+    + '<div class="skel-row"><div class="skel" style="flex:1"></div><div class="skel" style="width:100px"></div></div>';
+  $('recent-list').innerHTML = '<div class="skel-row"><div class="skel" style="flex:1"></div></div>'
+    + '<div class="skel-row"><div class="skel" style="flex:1"></div></div>';
+}
+
+/* mobile drawer nav */
+function wireDrawer() {
+  $('nav-toggle').onclick = () => document.body.classList.add('nav-open');
+  $('nav-close').onclick = () => document.body.classList.remove('nav-open');
+  $('nav-backdrop').onclick = () => document.body.classList.remove('nav-open');
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.body.classList.remove('nav-open');
+  });
 }
 
 function enterApp() {
   showScreen('app');
-  loadNovels().then(() => switchView('dashboard')).catch((e) => {
-    toast('Could not load novels: ' + e.message);
-  });
+  showSkeletons();
+  loadNovels()
+    .then(() => switchView('dashboard'))
+    .catch((e) => { toast('Could not load novels: ' + e.message); });
+  loadAuthors().catch(() => {});
+  loadReviews().catch(() => {});
   document.querySelectorAll('.nav-btn').forEach(b => {
     b.onclick = () => {
       if (b.dataset.view === 'editor' && b.id === 'nav-add') openEditor(null);
@@ -148,7 +183,17 @@ function enterApp() {
   $('add-novel-btn').onclick = () => openEditor(null);
   $('logout-btn').onclick = logout;
   $('export-all-btn').onclick = exportAll;
+  $('add-author-btn').onclick = () => openAuthorModal(null);
+  document.querySelectorAll('#review-filters .btn').forEach(b => {
+    b.onclick = () => {
+      reviewFilter = b.dataset.rf;
+      document.querySelectorAll('#review-filters .btn').forEach(x => x.classList.toggle('primary', x === b));
+      renderReviews();
+    };
+  });
+  wireDrawer();
   wireEditor();
+  wireAuthorModal();
   wireSettings();
 }
 
@@ -164,15 +209,21 @@ function renderDashboard() {
   const tb = $('trash-badge');
   tb.textContent = trashCount;
   tb.classList.toggle('hidden', !trashCount);
+  updateReviewBadge();
 
+  const pendingReviews = reviews.filter(r => !r.approved).length;
   $('stats-grid').innerHTML = [
-    ['📚', live.length, 'Total novels'],
-    ['✅', pub.length, 'Published'],
-    ['📝', drafts.length, 'Drafts'],
-    ['📄', chapters, 'Chapters'],
-    ['🔤', words.toLocaleString(), 'Words'],
-    ['👁️', views.toLocaleString(), 'Total views'],
-  ].map(([i, n, l]) => `<div class="stat"><div class="num">${n}</div><div class="lbl">${i} ${l}</div></div>`).join('');
+    ['📚', live.length, 'Total novels', 'novels'],
+    ['✅', pub.length, 'Published', 'novels'],
+    ['📝', drafts.length, 'Drafts', 'novels'],
+    ['📄', chapters, 'Chapters', ''],
+    ['🔤', words.toLocaleString(), 'Words', ''],
+    ['👁️', views.toLocaleString(), 'Total views', ''],
+    ['👥', authors.length, 'Authors', 'authors'],
+    ['⭐', pendingReviews, 'Pending reviews', 'reviews'],
+  ].map(([i, n, l, v]) => v
+    ? `<a class="stat" href="javascript:void(0)" onclick="switchView('${v}')"><div class="num">${n}</div><div class="lbl">${i} ${l}</div></a>`
+    : `<div class="stat"><div class="num">${n}</div><div class="lbl">${i} ${l}</div></div>`).join('');
 
   const top = [...live].sort((a, b) => b.views - a.views).slice(0, 5);
   $('top-viewed').innerHTML = top.length
@@ -219,6 +270,24 @@ function renderNovelList() {
       <button class="btn small" onclick="trashNovel('${n.slug}')">🗑️</button>
     </div></td>
   </tr>`).join('') || '<tr><td colspan="8" class="hint">No novels match.</td></tr>';
+  /* mobile cards */
+  $('novel-cards').innerHTML = rows.map(n => {
+    const u = n.language === 'ur';
+    return `<div class="ncard">
+      ${n.cover ? `<img class="thumb" src="${esc(n.cover)}" alt="" loading="lazy">` : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:22px">📖</div>`}
+      <div class="ncard-info">
+        <div class="ncard-title${u ? ' urdu' : ''}">${esc(n.title)}</div>
+        <div class="ncard-author">${esc(n.author || '')}</div>
+        <div class="ncard-meta">${statusBadge(n.status)}<span class="m">${n.chapterCount || 0} ch</span><span class="m">${(n.views || 0).toLocaleString()} views</span></div>
+      </div>
+      <div class="ncard-actions">
+        <button class="btn small" onclick="openEditor('${n.slug}')">✏️ Edit</button>
+        <button class="btn small" onclick="previewNovel('${n.slug}')">👁️ View</button>
+        <button class="btn small" onclick="toggleStatus('${n.slug}')">${n.status === 'draft' ? '🚀 Publish' : '📝 Draft'}</button>
+        <button class="btn small" onclick="trashNovel('${n.slug}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('') || emptyHTML('📚', 'No novels found', 'Try a different search, or add your first novel.');
 }
 
 function findNovel(slug) { return novels.find(n => n.slug === slug); }
@@ -567,6 +636,18 @@ function renderTrash() {
       <button class="btn small" onclick="purgeNovel('${n.slug}')">🔥 Delete forever</button>
     </div></td>
   </tr>`).join('') || '<tr><td colspan="5" class="hint">Trash is empty.</td></tr>';
+  $('trash-cards').innerHTML = rows.map(n => `<div class="ncard">
+    ${n.cover ? `<img class="thumb" src="${esc(n.cover)}" alt="" loading="lazy">` : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:22px">📖</div>`}
+    <div class="ncard-info">
+      <div class="ncard-title">${esc(n.title)}</div>
+      <div class="ncard-author">${esc(n.author || '')}</div>
+      <div class="ncard-meta"><span class="m">Deleted ${n.updated_at ? new Date(n.updated_at).toLocaleDateString() : ''}</span></div>
+    </div>
+    <div class="ncard-actions">
+      <button class="btn small" onclick="restoreNovel('${n.slug}')">♻️ Restore</button>
+      <button class="btn small" onclick="purgeNovel('${n.slug}')">🔥 Delete</button>
+    </div>
+  </div>`).join('') || emptyHTML('🗑️', 'Trash is empty', 'Deleted novels will appear here.');
 }
 
 async function restoreNovel(slug) {
@@ -661,6 +742,181 @@ function wireSettings() {
     if (!confirm('Sign out of the admin panel?')) return;
     logout();
   };
+}
+
+/* ---------------- authors ---------------- */
+async function loadAuthors() {
+  authors = await sbGet('/rest/v1/authors?select=*&order=name');
+  const dl = $('authors-datalist');
+  if (dl) dl.innerHTML = authors.map(a => `<option value="${esc(a.name)}">`).join('');
+}
+
+function authorInitial(a) {
+  const s = (a.name || '?').trim();
+  return esc(s.charAt(0));
+}
+
+function renderAuthors() {
+  const g = $('author-grid');
+  if (!authors.length) {
+    g.innerHTML = emptyHTML('👥', 'No authors yet', 'Add author profiles — name, photo and bio. They power the author suggestions in the novel editor.');
+    return;
+  }
+  g.innerHTML = authors.map(a => {
+    const ncount = novels.filter(n => n.status !== 'trash' && (n.author || '') === a.name).length;
+    return `<div class="author-card">
+      ${a.photo_url
+        ? `<img class="author-photo" src="${esc(a.photo_url)}" alt="" loading="lazy">`
+        : `<div class="author-photo">${authorInitial(a)}</div>`}
+      <div class="author-info">
+        <h4>${esc(a.name)}${a.name_en ? `<span class="en">${esc(a.name_en)}</span>` : ''}</h4>
+        ${a.bio ? `<div class="bio">${esc(a.bio)}</div>` : ''}
+        <div class="author-meta"><span class="badge">${ncount} novel${ncount === 1 ? '' : 's'}</span></div>
+        <div class="author-actions">
+          <button class="btn small" onclick="openAuthorModal('${a.id}')">✏️ Edit</button>
+          <button class="btn small" onclick="deleteAuthor('${a.id}')">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAuthorModal(id) {
+  editingAuthorId = id || null;
+  const a = id ? authors.find(x => x.id === id) : null;
+  $('author-modal-title').textContent = a ? 'Edit author' : 'Add author';
+  $('a-name').value = a ? (a.name || '') : '';
+  $('a-name-en').value = a ? (a.name_en || '') : '';
+  $('a-photo').value = a ? (a.photo_url || '') : '';
+  $('a-bio').value = a ? (a.bio || '') : '';
+  $('a-bio-en').value = a ? (a.bio_en || '') : '';
+  $('author-modal').classList.remove('hidden');
+  setTimeout(() => $('a-name').focus(), 60);
+}
+
+async function saveAuthor() {
+  const name = $('a-name').value.trim();
+  if (!name) return toast('Name is required.');
+  const row = {
+    name,
+    name_en: $('a-name-en').value.trim() || null,
+    photo_url: $('a-photo').value.trim() || null,
+    bio: $('a-bio').value.trim() || null,
+    bio_en: $('a-bio-en').value.trim() || null,
+  };
+  const btn = $('author-save-btn');
+  btn.disabled = true;
+  try {
+    if (editingAuthorId) {
+      await sbPatch('/rest/v1/authors?id=eq.' + editingAuthorId, row);
+    } else {
+      await sbPost('/rest/v1/authors', row);
+    }
+    await loadAuthors();
+    renderAuthors();
+    $('author-modal').classList.add('hidden');
+    toast('Author saved.');
+  } catch (e) {
+    toast('Save failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteAuthor(id) {
+  const a = authors.find(x => x.id === id);
+  if (!a) return;
+  if (!confirm('Delete author "' + a.name + '"? Novels keep their author text.')) return;
+  try {
+    await sbDel('/rest/v1/authors?id=eq.' + id);
+    authors = authors.filter(x => x.id !== id);
+    const dl = $('authors-datalist');
+    if (dl) dl.innerHTML = authors.map(x => `<option value="${esc(x.name)}">`).join('');
+    renderAuthors();
+    toast('Author deleted.');
+  } catch (e) { toast('Failed: ' + e.message); }
+}
+
+function wireAuthorModal() {
+  $('author-modal-close').onclick = () => $('author-modal').classList.add('hidden');
+  $('author-modal-cancel').onclick = () => $('author-modal').classList.add('hidden');
+  $('author-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'author-modal') $('author-modal').classList.add('hidden');
+  });
+  $('author-save-btn').onclick = saveAuthor;
+}
+
+/* ---------------- reviews ---------------- */
+async function loadReviews() {
+  try {
+    reviews = await sbGet('/rest/v1/reviews?select=*,novels(title)&order=created_at.desc');
+  } catch (e) {
+    reviews = [];
+  }
+  updateReviewBadge();
+  if (!$('view-reviews').classList.contains('hidden')) renderReviews();
+}
+
+function updateReviewBadge() {
+  const p = reviews.filter(r => !r.approved).length;
+  const b = $('reviews-badge');
+  if (b) { b.textContent = p; b.classList.toggle('hidden', !p); }
+}
+
+function starStr(rating) {
+  const r = Math.max(0, Math.min(5, parseInt(rating, 10) || 0));
+  return '★★★★★'.slice(0, r) + '☆☆☆☆☆'.slice(0, 5 - r);
+}
+
+function renderReviews() {
+  const list = reviews.filter(r =>
+    reviewFilter === 'all' ? true : reviewFilter === 'approved' ? r.approved : !r.approved);
+  const el = $('review-list');
+  if (!list.length) {
+    el.innerHTML = emptyHTML('⭐', reviewFilter === 'pending' ? 'No pending reviews' : 'No reviews yet',
+      reviewFilter === 'pending' ? 'New reader reviews will appear here for approval.' : 'Reader reviews will appear here.');
+    return;
+  }
+  el.innerHTML = list.map(r => {
+    const novelTitle = (r.novels && r.novels.title) || 'Unknown novel';
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString() : '';
+    return `<div class="review-card${r.approved ? '' : ' pending'}">
+      <div class="review-head">
+        <span class="r-novel">${esc(novelTitle)}</span>
+        <span class="r-stars">${starStr(r.rating)}</span>
+        <span class="badge ${r.approved ? 'pub' : 'pending'}">${r.approved ? 'Approved' : 'Pending'}</span>
+        <span class="r-date">${esc(date)}</span>
+      </div>
+      <div class="r-by" style="font-size:13px;color:var(--muted);margin-bottom:6px">by ${esc(r.reader_name || 'Anonymous')}</div>
+      ${r.comment ? `<div class="review-body">${esc(r.comment)}</div>` : ''}
+      <div class="review-actions">
+        <button class="btn small" onclick="setReviewApproved('${r.id}', ${r.approved ? 'false' : 'true'})">${r.approved ? '⏳ Unapprove' : '✅ Approve'}</button>
+        <button class="btn small" onclick="deleteReview('${r.id}')">🗑️ Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function setReviewApproved(id, val) {
+  try {
+    await sbPatch('/rest/v1/reviews?id=eq.' + id, { approved: !!val });
+    const r = reviews.find(x => x.id === id);
+    if (r) r.approved = !!val;
+    updateReviewBadge();
+    renderReviews();
+    toast(val ? 'Review approved — now visible on the site.' : 'Review moved back to pending.');
+  } catch (e) { toast('Failed: ' + e.message); }
+}
+
+async function deleteReview(id) {
+  if (!confirm('Delete this review?')) return;
+  try {
+    await sbDel('/rest/v1/reviews?id=eq.' + id);
+    reviews = reviews.filter(x => x.id !== id);
+    updateReviewBadge();
+    renderReviews();
+    toast('Review deleted.');
+  } catch (e) { toast('Failed: ' + e.message); }
 }
 
 /* ---------------- init ---------------- */
