@@ -38,6 +38,14 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebSite","name":"AST Novels","url":"https://ast-novels.vercel.app/","description":"A free online library of Urdu and English novels and classic stories.","publisher":{"@type":"Organization","name":"AST Family Studio"},"potentialAction":{"@type":"SearchAction","target":"https://ast-novels.vercel.app/library.html?q={search_term_string}","query-input":"required name=search_term_string"}}
 </script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Is it free to read novels on AST Novels?","acceptedAnswer":{"@type":"Answer","text":"Yes. Every novel on AST Novels is completely free to read online — no subscriptions, no payments, and no hidden charges."}},
+{"@type":"Question","name":"Do I need an account to read novels on AST Novels?","acceptedAnswer":{"@type":"Answer","text":"No. You can open any novel and start reading right away without signing up or creating an account."}},
+{"@type":"Question","name":"Which novels can I read on AST Novels — Urdu or English?","acceptedAnswer":{"@type":"Answer","text":"Both. The library holds Urdu kahaniyan — Manto, Iqbal, and Ghalib — alongside English classics by Austen, Dickens, Doyle, and more."}},
+{"@type":"Question","name":"Can I read novels offline on AST Novels?","acceptedAnswer":{"@type":"Answer","text":"Yes. Add AST Novels to your home screen and it works like an app, so you can keep reading even when you are offline."}}
+]}
+</script>
 </head>
 <body>
 <div class="topline"></div>
@@ -88,6 +96,14 @@
     </div>
   </div>
 </header>
+
+<!-- Continue Reading: filled by js/site.js from the saved reader position (astnovels_progress). Hidden when nothing is saved. -->
+<section id="continueSection" style="display:none">
+  <div class="wrap">
+    <div class="eyebrow reveal in">Pick up where you left off</div>
+    <div id="continueReading"></div>
+  </div>
+</section>
 
 <section class="featured">
   <div class="wrap">
