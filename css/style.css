@@ -351,3 +351,28 @@ body{top:0!important}
   .foot-inner{grid-template-columns:1fr}
   .novel-info h1{font-size:33px}
 }
+
+/* ---------- Continue Reading (homepage) ---------- */
+.continue-card{display:flex;align-items:center;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;box-shadow:var(--shadow);margin-bottom:8px}
+.continue-cover{flex:none;width:76px;border-radius:8px;overflow:hidden;box-shadow:0 8px 20px rgba(28,24,20,.18)}
+.continue-cover img{display:block;width:100%;aspect-ratio:2/3;object-fit:cover}
+.continue-body{flex:1;min-width:0}
+.continue-label{font-size:11px;letter-spacing:2.2px;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:6px}
+.continue-title{font-family:var(--serif-display);font-size:24px;font-weight:600;color:var(--ink);text-decoration:none;line-height:1.25;display:block}
+.continue-title:hover{color:var(--accent)}
+.continue-title.urdu{font-family:var(--urdu);direction:rtl;text-align:left;line-height:1.9}
+.continue-meta{font-size:13.5px;color:var(--muted);margin-top:4px}
+@media (max-width:600px){
+  .continue-card{flex-wrap:wrap;gap:14px;padding:16px}
+  .continue-cover{width:60px}
+  .continue-card .btn{width:100%;text-align:center}
+}
+
+/* ---------- star rating (novel page) ---------- */
+.rating{display:inline-flex;align-items:center;gap:8px;margin-bottom:18px}
+.rating .stars{color:var(--gold);font-size:19px;letter-spacing:2px}
+.rating .rating-val{font-size:13.5px;color:var(--muted);font-weight:500}
+
+/* ---------- toast ---------- */
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:#F3EAD2;padding:13px 22px;border-radius:999px;font-size:14px;font-weight:500;box-shadow:0 16px 40px rgba(0,0,0,.35);opacity:0;transition:opacity .3s,transform .3s;z-index:120;max-width:calc(100vw - 40px);text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
