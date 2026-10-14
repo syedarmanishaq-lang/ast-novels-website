@@ -31,6 +31,8 @@
       chapterCount: (r.chapters && r.chapters[0] && r.chapters[0].count) || 0,
       wordCount: r.word_count || 0,
       views: r.views || 0,
+      rating_avg: r.rating_avg || 0,
+      rating_count: r.rating_count || 0,
       published_year: r.published_year,
       tags: r.tags || []
     };
@@ -173,6 +175,44 @@
     catch(e){ return []; }
   }
 
+  /* ---------- Continue Reading (homepage) ----------
+     Reads the position the reader already saves in js/reader.js
+     (localStorage key astnovels_progress: {slug: {ch, scroll, pdfPage, at}}).
+     Shows only the most recently read novel; hidden when nothing is saved. */
+  function renderContinue(novels){
+    var sec = document.getElementById('continueSection'),
+        box = document.getElementById('continueReading');
+    if(!sec || !box) return;
+    var all = {};
+    try{ all = JSON.parse(localStorage.getItem('astnovels_progress') || '{}'); }catch(e){ all = {}; }
+    var best = null;
+    Object.keys(all).forEach(function(slug){
+      var p = all[slug];
+      if(!p || typeof p !== 'object') return;
+      if(!best || (p.at || 0) > (best.p.at || 0)) best = { slug: slug, p: p };
+    });
+    if(!best) return;
+    var n = null;
+    novels.forEach(function(x){ if(x.slug === best.slug) n = x; });
+    if(!n) return;
+    var ch = best.p.ch || 0;
+    var where = best.p.pdfPage
+      ? 'Page ' + best.p.pdfPage
+      : 'Chapter ' + (ch + 1) + (n.chapterCount ? ' of ' + n.chapterCount : '');
+    var u = isUrdu(n);
+    box.innerHTML =
+      '<div class="continue-card">' +
+        '<a class="continue-cover" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '"><img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy"></a>' +
+        '<div class="continue-body">' +
+          '<div class="continue-label">Continue Reading</div>' +
+          '<a class="continue-title' + (u ? ' urdu' : '') + '" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '">' + AN.esc(n.title) + '</a>' +
+          '<div class="continue-meta">by ' + AN.esc(n.author) + ' · ' + AN.esc(where) + '</div>' +
+        '</div>' +
+        '<a class="btn btn-sm" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '">Continue &rarr;</a>' +
+      '</div>';
+    sec.style.display = '';
+  }
+
   /* ---------- page renderers ---------- */
   function renderHome(){
     var featEl = document.getElementById('featuredGrid'),
@@ -180,6 +220,7 @@
         statEl = document.getElementById('heroStats');
     if(!featEl && !libEl) return;
     loadCatalog().then(function(novels){
+      renderContinue(novels);
       var feat = novels.filter(function(n){ return n.featured; });
       if(featEl) featEl.innerHTML = feat.length ? feat.map(featHTML).join('') : '<p class="count-line">No featured novels yet.</p>';
       if(libEl){
@@ -254,6 +295,31 @@
     });
   }
 
+  /* Star rating: ★/☆ from a numeric rating_avg; empty string when unrated. */
+  function starsHTML(avg, count){
+    avg = parseFloat(avg) || 0;
+    if(!(avg > 0) || !(count > 0)) return '';
+    var full = Math.round(avg);
+    var stars = '';
+    for(var i = 1; i <= 5; i++){ stars += (i <= full) ? '★' : '☆'; }
+    return '<span class="rating" title="' + avg.toFixed(1) + ' out of 5 from ' + count + ' rating' + (count === 1 ? '' : 's') + '">' +
+      '<span class="stars" aria-hidden="true">' + stars + '</span>' +
+      '<span class="rating-val">' + avg.toFixed(1) + ' · ' + count + ' rating' + (count === 1 ? '' : 's') + '</span></span>';
+  }
+
+  /* Small toast (used for the Share clipboard fallback). */
+  function showToast(msg){
+    var old = document.querySelector('.toast');
+    if(old) old.remove();
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.setAttribute('role', 'status');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ t.classList.add('show'); }); });
+    setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); }, 400); }, 2600);
+  }
+
   function renderNovel(){
     var root = document.getElementById('novelRoot');
     if(!root) return;
@@ -269,20 +335,43 @@
       var total = chapters.length;
       var startCh = prog ? prog.ch : 0;
 
-      /* SEO: dynamic title + JSON-LD Book */
-      document.title = n.title + ' by ' + n.author + ' — AST Novels';
+      /* SEO: unique title + description + canonical/OG derived from this novel */
+      var pageUrl = 'https://ast-novels.vercel.app/novel.html?id=' + n.slug;
+      var seoDesc = 'Read ' + n.title + ' by ' + n.author + ' online free at AST Novels. ' + (n.description || '').slice(0, 120);
+      document.title = n.title + ' by ' + n.author + ' — Read Free | AST Novels';
       var md = document.querySelector('meta[name="description"]');
-      if(md) md.setAttribute('content', 'Read ' + n.title + ' by ' + n.author + ' online free at AST Novels. ' + (n.description || '').slice(0, 120));
-      var ld = document.createElement('script');
-      ld.type = 'application/ld+json';
-      ld.textContent = JSON.stringify({
+      if(md) md.setAttribute('content', seoDesc);
+      var can = document.querySelector('link[rel="canonical"]');
+      if(can) can.setAttribute('href', pageUrl);
+      function setMeta(sel, attr, val){
+        var el = document.querySelector(sel);
+        if(el) el.setAttribute(attr, val);
+      }
+      setMeta('meta[property="og:title"]', 'content', n.title + ' by ' + n.author + ' — AST Novels');
+      setMeta('meta[property="og:description"]', 'content', seoDesc);
+      setMeta('meta[property="og:url"]', 'content', pageUrl);
+      setMeta('meta[property="og:image"]', 'content', 'https://ast-novels.vercel.app/' + n.cover);
+      setMeta('meta[name="twitter:title"]', 'content', n.title + ' by ' + n.author + ' — AST Novels');
+      setMeta('meta[name="twitter:description"]', 'content', seoDesc);
+      var ldObj = {
         '@context':'https://schema.org', '@type':'Book',
         name:n.title, author:{'@type':'Person', name:n.author},
         inLanguage: n.language === 'ur' ? 'ur' : 'en',
         genre:n.genre, description:n.description,
         image:'https://ast-novels.vercel.app/' + n.cover,
-        url:'https://ast-novels.vercel.app/novel.html?id=' + n.slug
-      });
+        url:pageUrl
+      };
+      if(n.rating_count > 0 && n.rating_avg > 0){
+        ldObj.aggregateRating = {
+          '@type':'AggregateRating',
+          ratingValue: Number(n.rating_avg).toFixed(1),
+          ratingCount: n.rating_count,
+          bestRating: '5'
+        };
+      }
+      var ld = document.createElement('script');
+      ld.type = 'application/ld+json';
+      ld.textContent = JSON.stringify(ldObj);
       document.head.appendChild(ld);
 
       var chRows = hasSource && !total
@@ -309,6 +398,7 @@
             '<div class="kicker">' + AN.esc(n.genre) + ' · ' + (u ? 'Urdu' : 'English') + '</div>' +
             '<h1 class="' + (u ? 'urdu' : '') + '">' + AN.esc(n.title) + '</h1>' +
             '<div class="author">by <b>' + AN.esc(n.author) + '</b></div>' +
+            starsHTML(n.rating_avg, n.rating_count) +
             '<div class="tag-row">' +
               '<span class="tag">' + (hasSource && !total ? 'External file' : total + ' chapter' + (total === 1 ? '' : 's')) + '</span>' +
               (total ? '<span class="tag">' + AN.words(countWords(chapters)) + ' words</span>' : '') +
@@ -319,12 +409,42 @@
               '<a class="btn" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + startCh + '">' +
                 (prog ? 'Continue reading — Ch. ' + (startCh + 1) : 'Start reading') + ' &rarr;</a>' +
               '<a class="btn btn-ghost" href="library.html">All novels</a>' +
+              '<button class="btn btn-ghost" id="shareBtn" type="button">Share</button>' +
             '</div>' +
             (prog ? '<div class="progress-note">You left off at chapter ' + (prog.ch + 1) + ' of ' + total + '.</div>' : '') +
           '</div>' +
         '</div>' +
         '<div class="chapter-section"><h2 class="serif sec-title" style="font-size:30px;margin-bottom:18px">Chapters</h2>' +
         '<div class="chapter-list">' + chRows + '</div></div>';
+
+      /* Share: Web Share API with clipboard fallback + toast. */
+      var shareBtn = document.getElementById('shareBtn');
+      if(shareBtn){
+        shareBtn.addEventListener('click', function(){
+          var shareData = { title: n.title + ' by ' + n.author + ' — AST Novels', text: 'Read ' + n.title + ' by ' + n.author + ' free on AST Novels.', url: pageUrl };
+          function copyFallback(){
+            function done(){ showToast('Link copied to clipboard'); }
+            if(navigator.clipboard && navigator.clipboard.writeText){
+              navigator.clipboard.writeText(pageUrl).then(done).catch(function(){ legacyCopy(); });
+            } else { legacyCopy(); }
+            function legacyCopy(){
+              var ta = document.createElement('textarea');
+              ta.value = pageUrl;
+              ta.style.position = 'fixed'; ta.style.opacity = '0';
+              document.body.appendChild(ta);
+              ta.select();
+              try{ document.execCommand('copy'); done(); }
+              catch(e){ showToast('Copy this link: ' + pageUrl); }
+              ta.remove();
+            }
+          }
+          if(navigator.share){
+            navigator.share(shareData).catch(function(){ /* user dismissed — no fallback needed */ });
+          } else {
+            copyFallback();
+          }
+        });
+      }
     }).catch(function(){
       root.innerHTML = '<div class="empty-state"><div class="big">Could not load this novel</div><p>Check your connection and try again.</p><p style="margin-top:18px"><a class="btn btn-ghost" href="library.html">Browse library</a></p></div>';
     });
