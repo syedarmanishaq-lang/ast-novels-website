@@ -431,7 +431,32 @@
           '</div>' +
         '</div>' +
         '<div class="chapter-section"><h2 class="serif sec-title" style="font-size:30px;margin-bottom:18px">Chapters</h2>' +
-        '<div class="chapter-list">' + chRows + '</div></div>';
+        '<div class="chapter-list">' + chRows + '</div></div>' +
+        '<div id="relatedNovels"></div>';
+
+      /* Related novels: same author first, then same genre/language — internal linking */
+      loadCatalog().then(function(all){
+        var rel = [];
+        var i, m;
+        for(i = 0; i < all.length && rel.length < 4; i++){
+          m = all[i];
+          if(m.slug !== n.slug && m.author === n.author) rel.push(m);
+        }
+        for(i = 0; i < all.length && rel.length < 4; i++){
+          m = all[i];
+          if(m.slug !== n.slug && m.author !== n.author && m.genre === n.genre && rel.indexOf(m) < 0) rel.push(m);
+        }
+        for(i = 0; i < all.length && rel.length < 4; i++){
+          m = all[i];
+          if(m.slug !== n.slug && rel.indexOf(m) < 0) rel.push(m);
+        }
+        if(rel.length){
+          var relHTML = '<div class="chapter-section"><h2 class="serif sec-title" style="font-size:30px;margin-bottom:18px">You may also like</h2>' +
+            '<div class="book-grid">' + rel.map(cardHTML).join('') + '</div></div>';
+          var relEl = document.getElementById('relatedNovels');
+          if(relEl) relEl.innerHTML = relHTML;
+        }
+      }).catch(function(){});
 
       /* Share: Web Share API with clipboard fallback + toast. */
       var shareBtn = document.getElementById('shareBtn');
