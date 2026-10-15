@@ -376,3 +376,6 @@ body{top:0!important}
 /* ---------- toast ---------- */
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:#F3EAD2;padding:13px 22px;border-radius:999px;font-size:14px;font-weight:500;box-shadow:0 16px 40px rgba(0,0,0,.35);opacity:0;transition:opacity .3s,transform .3s;z-index:120;max-width:calc(100vw - 40px);text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- visually hidden (screen-reader / SEO text) ---------- */
+.vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
