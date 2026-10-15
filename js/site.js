@@ -389,6 +389,27 @@
         ]
       });
       document.head.appendChild(bc);
+      /* FAQPage per novel — original Q&A for richer results (beats thin competitor pages) */
+      (function(){
+        var faqQs = [
+          {'q':'Is ' + n.title + ' free to read online?', 'a':'Yes. ' + n.title + ' by ' + n.author + ' is completely free to read online at AST Novels — full text in a beautiful reader, no account or signup needed.'},
+          {'q':'Who wrote ' + n.title + '?', 'a':n.title + ' was written by ' + n.author + (n.year ? ' and first published in ' + n.year + '.' : '.') + ' Read it free on AST Novels.'},
+          {'q':'Do I need an account to read ' + n.title + '?', 'a':'No. Unlike many free-reading sites, AST Novels never asks for an account — open ' + n.title + ' and start reading instantly, on any device.'}
+        ];
+        if(n.language === 'ur'){
+          faqQs.push({'q':'Is ' + n.title + ' in original Urdu script?', 'a':'Yes. ' + n.title + ' is presented in original Urdu script on AST Novels, exactly as written — not transliterated into Roman Urdu.'});
+        }
+        if(total > 1){
+          faqQs.push({'q':'How many chapters does ' + n.title + ' have?', 'a':n.title + ' has ' + total + ' chapters on AST Novels, all free to read with your progress saved in your browser.'});
+        }
+        var faq = document.createElement('script');
+        faq.type = 'application/ld+json';
+        faq.textContent = JSON.stringify({
+          '@context':'https://schema.org', '@type':'FAQPage',
+          mainEntity: faqQs.map(function(x){ return {'@type':'Question', name:x.q, acceptedAnswer:{'@type':'Answer', text:x.a}}; })
+        });
+        document.head.appendChild(faq);
+      })();
 
       var chRows = hasSource && !total
         ? '<a class="chapter-row" href="read.html?id=' + AN.esc(n.slug) + '&ch=0">' +
