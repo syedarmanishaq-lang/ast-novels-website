@@ -357,10 +357,14 @@
         '@context':'https://schema.org', '@type':'Book',
         name:n.title, author:{'@type':'Person', name:n.author},
         inLanguage: n.language === 'ur' ? 'ur' : 'en',
-        genre:n.genre, description:n.description,
+        genre:n.genre, description:(n.description || '').slice(0, 300),
         image:'https://ast-novels.vercel.app/' + n.cover,
-        url:pageUrl
+        url:pageUrl,
+        bookFormat:'https://schema.org/EBook',
+        isAccessibleForFree:true,
+        publisher:{'@type':'Organization', name:'AST Family Studio', url:'https://ast-novels.vercel.app/'}
       };
+      if(n.year){ ldObj.datePublished = String(n.year); }
       if(n.rating_count > 0 && n.rating_avg > 0){
         ldObj.aggregateRating = {
           '@type':'AggregateRating',
@@ -373,6 +377,18 @@
       ld.type = 'application/ld+json';
       ld.textContent = JSON.stringify(ldObj);
       document.head.appendChild(ld);
+      /* BreadcrumbList for richer search results */
+      var bc = document.createElement('script');
+      bc.type = 'application/ld+json';
+      bc.textContent = JSON.stringify({
+        '@context':'https://schema.org', '@type':'BreadcrumbList',
+        itemListElement:[
+          {'@type':'ListItem', position:1, name:'Home', item:'https://ast-novels.vercel.app/'},
+          {'@type':'ListItem', position:2, name:'Library', item:'https://ast-novels.vercel.app/library.html'},
+          {'@type':'ListItem', position:3, name:n.title + ' by ' + n.author, item:pageUrl}
+        ]
+      });
+      document.head.appendChild(bc);
 
       var chRows = hasSource && !total
         ? '<a class="chapter-row" href="read.html?id=' + AN.esc(n.slug) + '&ch=0">' +
