@@ -190,6 +190,14 @@
     var ch = Math.min(Math.max(startCh, 0), n.chapters.length - 1);
     var theme = store.get('reader_theme', 'day');
     var fsize = store.get('reader_font', 19);
+    /* 4 reading themes: light(day) / sepia / dark / night-black(night). Stored values stay compatible. */
+    var THEMES = ['day', 'sepia', 'dark', 'night'];
+    if(THEMES.indexOf(theme) === -1) theme = 'day';
+    /* line spacing: compact → normal → relaxed */
+    var LH_STEPS = [1.6, 1.9, 2.2];
+    var LH_NAMES = { '1.6': 'Compact', '1.9': 'Normal', '2.2': 'Relaxed' };
+    var lh = store.get('reader_lineheight', 1.9);
+    if(LH_STEPS.indexOf(lh) === -1) lh = 1.9;
 
       /* reader shell */
       var shell = document.createElement('div');
@@ -201,11 +209,13 @@
           '<a class="back" href="novel.html?id=' + AN.esc(n.slug) + '">&larr; <span>Novel</span></a>' +
           '<div class="r-title" id="rTitle"></div>' +
           '<div class="reader-tools">' +
-            '<button class="tool-btn" id="tMinus" aria-label="Smaller text">A&minus;</button>' +
-            '<button class="tool-btn" id="tPlus" aria-label="Larger text">A+</button>' +
-            '<button class="tool-btn" id="tDay" aria-label="Day theme">☀</button>' +
-            '<button class="tool-btn" id="tSepia" aria-label="Sepia theme">◐</button>' +
-            '<button class="tool-btn" id="tNight" aria-label="Night theme">☾</button>' +
+            '<button class="tool-btn" id="tMinus" aria-label="Smaller text" title="Smaller text">A&minus;</button>' +
+            '<button class="tool-btn" id="tPlus" aria-label="Larger text" title="Larger text">A+</button>' +
+            '<button class="tool-btn" id="tLH" aria-label="Line spacing" title="Line spacing">&#8801;</button>' +
+            '<button class="tool-btn" id="tDay" aria-label="Light theme" title="Light">&#9728;</button>' +
+            '<button class="tool-btn" id="tSepia" aria-label="Sepia theme" title="Sepia">&#9696;</button>' +
+            '<button class="tool-btn" id="tDark" aria-label="Dark theme" title="Dark">&#9790;</button>' +
+            '<button class="tool-btn" id="tNight" aria-label="Night black theme" title="Night black">&#11035;</button>' +
             '<select class="tool-btn" id="chSel" aria-label="Choose chapter"></select>' +
           '</div>' +
         '</div></div>' +
@@ -231,16 +241,25 @@
 
       function paintTheme(){
         shell.setAttribute('data-theme', theme);
-        [['tDay','day'],['tSepia','sepia'],['tNight','night']].forEach(function(p){
+        [['tDay','day'],['tSepia','sepia'],['tDark','dark'],['tNight','night']].forEach(function(p){
           shell.querySelector('#' + p[0]).classList.toggle('on', theme === p[1]);
         });
       }
       function paintFont(){ body.style.fontSize = fsize + 'px'; }
+      function paintLH(){
+        shell.style.setProperty('--rlh', lh);
+        shell.querySelector('#tLH').title = 'Line spacing: ' + (LH_NAMES[lh] || 'Normal');
+      }
 
       shell.querySelector('#tMinus').addEventListener('click', function(){ fsize = Math.max(14, fsize - 2); store.set('reader_font', fsize); paintFont(); });
       shell.querySelector('#tPlus').addEventListener('click', function(){ fsize = Math.min(28, fsize + 2); store.set('reader_font', fsize); paintFont(); });
+      shell.querySelector('#tLH').addEventListener('click', function(){
+        lh = LH_STEPS[(LH_STEPS.indexOf(lh) + 1) % LH_STEPS.length];
+        store.set('reader_lineheight', lh); paintLH();
+      });
       shell.querySelector('#tDay').addEventListener('click', function(){ theme = 'day'; store.set('reader_theme', theme); paintTheme(); });
       shell.querySelector('#tSepia').addEventListener('click', function(){ theme = 'sepia'; store.set('reader_theme', theme); paintTheme(); });
+      shell.querySelector('#tDark').addEventListener('click', function(){ theme = 'dark'; store.set('reader_theme', theme); paintTheme(); });
       shell.querySelector('#tNight').addEventListener('click', function(){ theme = 'night'; store.set('reader_theme', theme); paintTheme(); });
 
       /* bookmarks: {slug: [chIdx,...]} */
@@ -294,7 +313,7 @@
         nav.querySelectorAll('[data-nav]').forEach(function(a){
           a.addEventListener('click', function(e){ e.preventDefault(); go(parseInt(a.getAttribute('data-nav'), 10)); });
         });
-        paintTheme(); paintFont(); paintFab();
+        paintTheme(); paintFont(); paintLH(); paintFab();
         markRead(ch); saveProgress();
       }
 
@@ -344,11 +363,12 @@
           '<a class="back" href="novel.html?id=' + AN.esc(n.slug) + '">&larr; <span>Novel</span></a>' +
           '<div class="r-title">' + AN.esc(n.title) + '</div>' +
           '<div class="reader-tools">' +
-            '<button class="tool-btn" id="tMinus" aria-label="Smaller">A&minus;</button>' +
-            '<button class="tool-btn" id="tPlus" aria-label="Larger">A+</button>' +
-            '<button class="tool-btn" id="tDay" aria-label="Day theme">☀</button>' +
-            '<button class="tool-btn" id="tSepia" aria-label="Sepia theme">◐</button>' +
-            '<button class="tool-btn" id="tNight" aria-label="Night theme">☾</button>' +
+            '<button class="tool-btn" id="tMinus" aria-label="Smaller" title="Zoom out">A&minus;</button>' +
+            '<button class="tool-btn" id="tPlus" aria-label="Larger" title="Zoom in">A+</button>' +
+            '<button class="tool-btn" id="tDay" aria-label="Light theme" title="Light">&#9728;</button>' +
+            '<button class="tool-btn" id="tSepia" aria-label="Sepia theme" title="Sepia">&#9696;</button>' +
+            '<button class="tool-btn" id="tDark" aria-label="Dark theme" title="Dark">&#9790;</button>' +
+            '<button class="tool-btn" id="tNight" aria-label="Night black theme" title="Night black">&#11035;</button>' +
             '<select class="tool-btn" id="pgSel" aria-label="Go to page"></select>' +
           '</div>' +
         '</div></div>' +
@@ -370,14 +390,18 @@
       }).join('');
       sel.addEventListener('change', function(){ goPage(parseInt(sel.value, 10)); });
 
+      var THEMES = ['day', 'sepia', 'dark', 'night'];
+      if(THEMES.indexOf(theme) === -1) theme = 'day';
+
       function paintTheme(){
         shell.setAttribute('data-theme', theme);
-        [['tDay','day'],['tSepia','sepia'],['tNight','night']].forEach(function(p){
+        [['tDay','day'],['tSepia','sepia'],['tDark','dark'],['tNight','night']].forEach(function(p){
           shell.querySelector('#' + p[0]).classList.toggle('on', theme === p[1]);
         });
       }
       shell.querySelector('#tDay').addEventListener('click', function(){ theme = 'day'; store.set('reader_theme', theme); paintTheme(); });
       shell.querySelector('#tSepia').addEventListener('click', function(){ theme = 'sepia'; store.set('reader_theme', theme); paintTheme(); });
+      shell.querySelector('#tDark').addEventListener('click', function(){ theme = 'dark'; store.set('reader_theme', theme); paintTheme(); });
       shell.querySelector('#tNight').addEventListener('click', function(){ theme = 'night'; store.set('reader_theme', theme); paintTheme(); });
       shell.querySelector('#tMinus').addEventListener('click', function(){ zoom = Math.max(0.6, +(zoom - 0.15).toFixed(2)); store.set('reader_pdfzoom', zoom); renderAll(true); });
       shell.querySelector('#tPlus').addEventListener('click', function(){ zoom = Math.min(2.2, +(zoom + 0.15).toFixed(2)); store.set('reader_pdfzoom', zoom); renderAll(true); });
