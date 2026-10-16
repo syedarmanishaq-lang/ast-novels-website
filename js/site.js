@@ -145,9 +145,11 @@
   function cardHTML(n){
     var u = isUrdu(n);
     var ratingLine = (window.ASTPlatform && window.ASTPlatform.ratingLineHTML(n)) || '';
+    var dlBadge = (window.ASTPlatform && window.ASTPlatform.isDownloaded(n.slug))
+      ? '<span class="book-dl" title="Downloaded for offline">Downloaded &#10003;</span>' : '';
     return '<a class="book-card reveal" href="novel.html?id=' + AN.esc(n.slug) + '">' +
       '<div class="book-cover"><img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy">' +
-      '<span class="book-lang">' + (u ? 'اردو' : 'EN') + '</span></div>' +
+      '<span class="book-lang">' + (u ? 'اردو' : 'EN') + '</span>' + dlBadge + '</div>' +
       '<div class="book-body">' +
         '<div class="book-title' + (u ? ' urdu' : '') + '">' + displayTitle(n) + '</div>' +
         '<div class="book-author">by ' + AN.esc(n.author) + '</div>' +
@@ -268,7 +270,7 @@
         langChips = document.querySelectorAll('#langChips .chip'),
         count  = document.getElementById('libCount'),
         empty  = document.getElementById('libEmpty');
-    var genre = 'all', lang = 'all', q = '', sort = 'featured';
+    var genre = 'all', lang = 'all', q = '', sort = 'featured', dlOnly = false;
     var all = [];
     var order = [];
 
@@ -295,10 +297,12 @@
     }
 
     function draw(){
+      var P = window.ASTPlatform;
       var list = [];
       all.forEach(function(n){
         if(genre !== 'all' && n.genre !== genre) return;
         if(lang !== 'all' && n.language !== lang) return;
+        if(dlOnly && !(P && P.isDownloaded(n.slug))) return;
         if(q){
           var hay = (n.title + ' ' + (n.title_en || '') + ' ' + n.author + ' ' + (n.author_en || '') + ' ' + n.genre).toLowerCase();
           if(hay.indexOf(q) === -1) return;
@@ -322,6 +326,14 @@
     langChips.forEach(function(c){ c.addEventListener('click', function(){ setChip(langChips, c.getAttribute('data-v'), function(v){ lang = v; }); }); });
     if(search) search.addEventListener('input', function(){ q = search.value.trim().toLowerCase(); draw(); });
     if(sortSel) sortSel.addEventListener('change', function(){ sort = sortSel.value; draw(); });
+    var dlChip = document.getElementById('dlOnlyChip');
+    if(dlChip) dlChip.addEventListener('click', function(){
+      dlOnly = !dlOnly;
+      dlChip.classList.toggle('on', dlOnly);
+      dlChip.setAttribute('data-v', dlOnly ? 'on' : 'off');
+      dlChip.setAttribute('aria-pressed', dlOnly ? 'true' : 'false');
+      draw();
+    });
 
     loadCatalog().then(function(novels){
       all = novels;
@@ -550,6 +562,7 @@
               '<a class="btn" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + startCh + '">' +
                 (prog ? 'Continue reading — Ch. ' + (startCh + 1) : 'Start reading') + ' &rarr;</a>' +
               '<a class="btn btn-ghost" href="library.html">All novels</a>' +
+              '<button class="btn btn-ghost" id="dlBtn" type="button">Download</button>' +
               '<button class="btn btn-ghost" id="shareBtn" type="button">Share</button>' +
               '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' +
                 encodeURIComponent('Read ' + n.title + ' by ' + n.author + ' free on AST Novels: ' + pageUrl) + '">WhatsApp</a>' +
@@ -596,6 +609,32 @@
       /* Platform: interactive rating + local reviews. */
       renderRateWidget(n.slug, n);
       renderReviews(n.slug);
+
+      /* Offline download: cache the novel's data + cover via the Cache API. */
+      (function(){
+        var P = window.ASTPlatform;
+        var dlBtn = document.getElementById('dlBtn');
+        if(!dlBtn || !P) return;
+        function paint(){
+          var done = P.isDownloaded(n.slug);
+          dlBtn.textContent = done ? 'Downloaded ✓' : 'Download';
+          dlBtn.classList.toggle('dl-on', done);
+        }
+        paint();
+        dlBtn.addEventListener('click', function(){
+          dlBtn.disabled = true;
+          dlBtn.textContent = 'Saving…';
+          if(P.isDownloaded(n.slug)){
+            P.removeDownload(n.slug).then(function(){ dlBtn.disabled = false; paint(); showToast('Removed from downloads'); });
+          } else {
+            P.downloadNovel(n.slug, n).then(function(){
+              dlBtn.disabled = false; paint(); showToast('Saved for offline reading');
+            }).catch(function(){
+              dlBtn.disabled = false; paint(); showToast('Could not save — check your connection');
+            });
+          }
+        });
+      })();
 
       /* Share: Web Share API with clipboard fallback + toast. */
       var shareBtn = document.getElementById('shareBtn');
