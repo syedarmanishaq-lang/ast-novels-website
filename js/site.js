@@ -144,12 +144,14 @@
   }
   function cardHTML(n){
     var u = isUrdu(n);
+    var ratingLine = (window.ASTPlatform && window.ASTPlatform.ratingLineHTML(n)) || '';
     return '<a class="book-card reveal" href="novel.html?id=' + AN.esc(n.slug) + '">' +
       '<div class="book-cover"><img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy">' +
       '<span class="book-lang">' + (u ? 'اردو' : 'EN') + '</span></div>' +
       '<div class="book-body">' +
         '<div class="book-title' + (u ? ' urdu' : '') + '">' + displayTitle(n) + '</div>' +
         '<div class="book-author">by ' + AN.esc(n.author) + '</div>' +
+        (ratingLine ? '<div class="book-rating">' + ratingLine + '</div>' : '') +
         '<div class="book-meta"><span class="genre">' + AN.esc(n.genre) + '</span>' +
         '<span>' + AN.words(n.wordCount || 0) + ' words</span></div>' +
       '</div></a>';
@@ -213,6 +215,22 @@
     sec.style.display = '';
   }
 
+  /* ---------- Trending (homepage) ----------
+     Top novels by readers' local ratings + read counts. Hidden when no signal yet. */
+  function renderTrending(novels){
+    var sec = document.getElementById('trendSection'),
+        grid = document.getElementById('trendGrid');
+    if(!sec || !grid || !window.ASTPlatform) return;
+    var scored = novels.map(function(n){
+      return { n: n, s: window.ASTPlatform.trendingScore(n) };
+    }).filter(function(x){ return x.s > 0; });
+    if(scored.length < 2) return; // not enough reader signal yet
+    scored.sort(function(a, b){ return b.s - a.s; });
+    var top = scored.slice(0, 4).map(function(x){ return x.n; });
+    grid.innerHTML = top.map(cardHTML).join('');
+    sec.style.display = '';
+  }
+
   /* ---------- page renderers ---------- */
   function renderHome(){
     var featEl = document.getElementById('featuredGrid'),
@@ -221,6 +239,7 @@
     if(!featEl && !libEl) return;
     loadCatalog().then(function(novels){
       renderContinue(novels);
+      renderTrending(novels);
       var feat = novels.filter(function(n){ return n.featured; });
       if(featEl) featEl.innerHTML = feat.length ? feat.map(featHTML).join('') : '<p class="count-line">No featured novels yet.</p>';
       if(libEl){
@@ -244,15 +263,39 @@
     var grid = document.getElementById('libraryGrid');
     if(!grid) return;
     var search = document.getElementById('libSearch'),
+        sortSel = document.getElementById('libSort'),
         chips  = document.querySelectorAll('#genreChips .chip'),
         langChips = document.querySelectorAll('#langChips .chip'),
         count  = document.getElementById('libCount'),
         empty  = document.getElementById('libEmpty');
-    var genre = 'all', lang = 'all', q = '';
+    var genre = 'all', lang = 'all', q = '', sort = 'featured';
     var all = [];
+    var order = [];
+
+    function sortList(list){
+      var P = window.ASTPlatform;
+      var arr = list.slice();
+      if(sort === 'newest'){
+        arr.sort(function(a, b){ return (b.year || 0) - (a.year || 0); });
+      } else if(sort === 'rated' && P){
+        arr.sort(function(a, b){
+          var ra = P.mergedRating(a), rb = P.mergedRating(b);
+          var va = ra ? ra.avg + Math.min(ra.count, 10) * 0.05 : -1;
+          var vb = rb ? rb.avg + Math.min(rb.count, 10) * 0.05 : -1;
+          return vb - va;
+        });
+      } else if(sort === 'read' && P){
+        arr.sort(function(a, b){ return P.totalViews(b) - P.totalViews(a); });
+      } else if(order.length){
+        var pos = {};
+        order.forEach(function(s, i){ pos[s] = i; });
+        arr.sort(function(a, b){ return (pos[a.slug] == null ? 1e9 : pos[a.slug]) - (pos[b.slug] == null ? 1e9 : pos[b.slug]); });
+      }
+      return arr;
+    }
 
     function draw(){
-      var shown = 0, html = '';
+      var list = [];
       all.forEach(function(n){
         if(genre !== 'all' && n.genre !== genre) return;
         if(lang !== 'all' && n.language !== lang) return;
@@ -260,8 +303,11 @@
           var hay = (n.title + ' ' + (n.title_en || '') + ' ' + n.author + ' ' + (n.author_en || '') + ' ' + n.genre).toLowerCase();
           if(hay.indexOf(q) === -1) return;
         }
-        html += cardHTML(n); shown++;
+        list.push(n);
       });
+      list = sortList(list);
+      var html = '', shown = 0;
+      list.forEach(function(n){ html += cardHTML(n); shown++; });
       grid.innerHTML = html;
       if(count) count.textContent = shown + ' of ' + all.length + ' novels';
       if(empty) empty.style.display = shown ? 'none' : 'block';
@@ -275,9 +321,11 @@
     chips.forEach(function(c){ c.addEventListener('click', function(){ setChip(chips, c.getAttribute('data-v'), function(v){ genre = v; }); }); });
     langChips.forEach(function(c){ c.addEventListener('click', function(){ setChip(langChips, c.getAttribute('data-v'), function(v){ lang = v; }); }); });
     if(search) search.addEventListener('input', function(){ q = search.value.trim().toLowerCase(); draw(); });
+    if(sortSel) sortSel.addEventListener('change', function(){ sort = sortSel.value; draw(); });
 
     loadCatalog().then(function(novels){
       all = novels;
+      order = novels.map(function(n){ return n.slug; });
       // build genre chips from data
       var genres = {};
       novels.forEach(function(n){ genres[n.genre] = true; });
@@ -318,6 +366,61 @@
     document.body.appendChild(t);
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ t.classList.add('show'); }); });
     setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); }, 400); }, 2600);
+  }
+
+  /* Interactive star rating + local reviews for the novel page. */
+  function renderRateWidget(slug, novel){
+    var el = document.getElementById('rateWidget');
+    if(!el || !window.ASTPlatform) return;
+    var P = window.ASTPlatform;
+    function draw(){
+      var mine = P.getMyRating(slug);
+      var m = P.mergedRating(novel);
+      var btns = '';
+      for(var i = 1; i <= 5; i++){
+        btns += '<button type="button" data-v="' + i + '" class="' + (i <= mine ? 'lit' : '') + '" aria-label="Rate ' + i + ' star' + (i > 1 ? 's' : '') + '">★</button>';
+      }
+      el.innerHTML =
+        '<div class="rate-widget"><span class="rate-label">Your rating</span>' +
+        '<span class="rate-stars">' + btns + '</span>' +
+        (m ? '<span class="rate-avg">' + m.avg.toFixed(1) + ' · ' + m.count + ' rating' + (m.count === 1 ? '' : 's') + '</span>'
+           : '<span class="rate-avg">Be the first to rate</span>') +
+        '</div>';
+      var bs = el.querySelectorAll('.rate-stars button');
+      for(var j = 0; j < bs.length; j++){
+        (function(b){
+          b.addEventListener('click', function(){
+            P.setRating(slug, parseInt(b.getAttribute('data-v'), 10));
+            draw();
+            showToast('Thanks — your rating was saved');
+          });
+        })(bs[j]);
+      }
+    }
+    draw();
+  }
+
+  function renderReviews(slug){
+    var list = document.getElementById('reviewList'),
+        form = document.getElementById('reviewForm');
+    if(!list || !form || !window.ASTPlatform) return;
+    var P = window.ASTPlatform;
+    function draw(){
+      var revs = P.getReviews(slug);
+      list.innerHTML = revs.length
+        ? revs.map(function(r){
+            var when = new Date(r.at).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
+            return '<div class="review"><div class="review-head"><b>' + AN.esc(r.n) + '</b><span>' + AN.esc(when) + '</span></div>' +
+              '<p>' + AN.esc(r.t) + '</p></div>';
+          }).join('')
+        : '<p class="count-line">No reviews yet — yours could be the first.</p>';
+    }
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var rev = P.addReview(slug, document.getElementById('revName').value, document.getElementById('revText').value);
+      if(rev){ draw(); form.reset(); showToast('Review posted'); }
+    });
+    draw();
   }
 
   function renderNovel(){
@@ -436,6 +539,7 @@
             '<h1 class="' + (u ? 'urdu' : '') + '">' + AN.esc(n.title) + '</h1>' +
             '<div class="author">by <b>' + AN.esc(n.author) + '</b></div>' +
             starsHTML(n.rating_avg, n.rating_count) +
+            '<div id="rateWidget"></div>' +
             '<div class="tag-row">' +
               '<span class="tag">' + (hasSource && !total ? 'External file' : total + ' chapter' + (total === 1 ? '' : 's')) + '</span>' +
               (total ? '<span class="tag">' + AN.words(countWords(chapters)) + ' words</span>' : '') +
@@ -447,12 +551,22 @@
                 (prog ? 'Continue reading — Ch. ' + (startCh + 1) : 'Start reading') + ' &rarr;</a>' +
               '<a class="btn btn-ghost" href="library.html">All novels</a>' +
               '<button class="btn btn-ghost" id="shareBtn" type="button">Share</button>' +
+              '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' +
+                encodeURIComponent('Read ' + n.title + ' by ' + n.author + ' free on AST Novels: ' + pageUrl) + '">WhatsApp</a>' +
             '</div>' +
             (prog ? '<div class="progress-note">You left off at chapter ' + (prog.ch + 1) + ' of ' + total + '.</div>' : '') +
           '</div>' +
         '</div>' +
         '<div class="chapter-section"><h2 class="serif sec-title" style="font-size:30px;margin-bottom:18px">Chapters</h2>' +
         '<div class="chapter-list">' + chRows + '</div></div>' +
+        '<div class="chapter-section" id="reviewsSection"><h2 class="serif sec-title" style="font-size:30px;margin-bottom:6px">Reader reviews</h2>' +
+        '<p class="sec-sub" style="margin-bottom:20px">What did you think of this book? Reviews are saved on this device only.</p>' +
+        '<div id="reviewList"></div>' +
+        '<form id="reviewForm" class="review-form">' +
+          '<input id="revName" type="text" maxlength="40" placeholder="Your name (optional)" aria-label="Your name" autocomplete="name">' +
+          '<textarea id="revText" rows="3" maxlength="600" placeholder="Write your review…" aria-label="Your review" required></textarea>' +
+          '<button class="btn btn-sm" type="submit">Post review</button>' +
+        '</form></div>' +
         '<div id="relatedNovels"></div>';
 
       /* Related novels: same author first, then same genre/language — internal linking */
@@ -478,6 +592,10 @@
           if(relEl) relEl.innerHTML = relHTML;
         }
       }).catch(function(){});
+
+      /* Platform: interactive rating + local reviews. */
+      renderRateWidget(n.slug, n);
+      renderReviews(n.slug);
 
       /* Share: Web Share API with clipboard fallback + toast. */
       var shareBtn = document.getElementById('shareBtn');
