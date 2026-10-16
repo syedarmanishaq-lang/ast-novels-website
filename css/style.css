@@ -383,3 +383,58 @@ body{top:0!important}
 
 /* ---------- visually hidden (screen-reader / SEO text) ---------- */
 .vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ============================================================
+   AST Novels — platform layer (Pack 1–3): read-aloud, ratings,
+   reviews, trending, library sort, reading stats.
+   ============================================================ */
+
+/* ---------- read-aloud sentence highlight ---------- */
+.tts-s{transition:background .25s ease;border-radius:3px}
+.tts-s.on{background:var(--gold-soft);box-shadow:0 0 0 3px var(--gold-soft)}
+.reader[data-theme="dark"] .tts-s.on,
+.reader[data-theme="night"] .tts-s.on{background:rgba(185,138,47,.28);box-shadow:0 0 0 3px rgba(185,138,47,.28)}
+
+/* ---------- book card rating line ---------- */
+.book-rating{margin-top:2px}
+.book-rating .rating{font-size:12.5px}
+
+/* ---------- novel page: interactive rating widget ---------- */
+.rate-widget{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
+.rate-label{font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.rate-stars{display:inline-flex;gap:4px}
+.rate-stars button{background:none;border:none;cursor:pointer;font-size:26px;line-height:1;color:#CFC3A6;padding:2px;transition:transform .15s ease,color .15s ease}
+.rate-stars button:hover{transform:scale(1.18);color:var(--gold)}
+.rate-stars button.lit{color:var(--gold)}
+.rate-avg{font-size:13px;color:var(--muted)}
+
+/* ---------- novel page: reviews ---------- */
+#reviewList{margin-bottom:26px}
+.review{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 22px;margin-bottom:14px}
+.review-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px}
+.review-head b{font-family:var(--serif-display);font-size:17px}
+.review-head span{font-size:12.5px;color:var(--muted)}
+.review p{font-size:15px;color:var(--ink-soft);line-height:1.7}
+.review-form{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;display:flex;flex-direction:column;gap:14px;max-width:640px}
+.review-form input,.review-form textarea{font-family:var(--sans);font-size:15px;padding:12px 16px;border:1.5px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);outline:none;resize:vertical}
+.review-form input:focus,.review-form textarea:focus{border-color:var(--accent)}
+.review-form .btn{align-self:flex-start}
+
+/* ---------- library: sort control ---------- */
+.sort-wrap{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--muted)}
+.sortsel{font-family:var(--sans);font-size:14px;font-weight:500;padding:10px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);cursor:pointer;outline:none}
+.sortsel:focus{border-color:var(--accent)}
+
+/* ---------- stats dashboard ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:18px;margin:34px 0 10px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px 22px;text-align:center;box-shadow:var(--shadow)}
+.stat-card b{display:block;font-family:var(--serif-display);font-size:38px;font-weight:500;color:var(--accent);line-height:1.1}
+.stat-card span{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
+
+@media (max-width:640px){
+  .rate-stars button{font-size:30px}
+  .review-form{padding:18px}
+  .stat-card b{font-size:32px}
+  .sort-wrap{margin-left:0;width:100%}
+  .sortsel{flex:1}
+}
