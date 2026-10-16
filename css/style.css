@@ -509,3 +509,85 @@ mark.find-hit.cur{background:var(--accent);color:#FFF8EC;box-shadow:0 0 0 3px rg
   .findbar{padding:8px 14px}
   .shelf-row .chip{font-size:12.5px;padding:8px 14px}
 }
+
+/* ============================================================
+   UI/UX polish pass — premium book feel, smooth motion,
+   mobile-perfect. Matches gold/oxblood/Cormorant language.
+   ============================================================ */
+
+/* ---------- reader toolbar: grouped, refined ---------- */
+.tsep{width:1px;align-self:stretch;background:var(--rline);margin:5px 3px;flex:none;opacity:.8}
+.tool-btn{transition:border-color .18s ease,background .18s ease,color .18s ease,transform .12s ease}
+.tool-btn:active{transform:scale(.94)}
+.tool-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.reader-tools{gap:7px}
+
+/* ---------- find bar: flows with the page, no sticky clash ---------- */
+.findbar{position:relative;z-index:5;background:var(--rbar,#FFFDF8);border-bottom:1px solid var(--rline,#E3D9C2);padding:12px 22px;display:flex;gap:8px;align-items:center;box-shadow:0 8px 22px rgba(28,24,20,.06)}
+.findbar input{transition:border-color .18s ease,box-shadow .18s ease}
+.findbar input:focus{box-shadow:0 0 0 3px rgba(185,138,47,.18)}
+
+/* ---------- typography rhythm: premium book feel ---------- */
+.prose p{text-wrap:pretty}
+.prose p:last-child{margin-bottom:0}
+.reader-body h1.chapter-title{text-wrap:balance;letter-spacing:.2px}
+.book-title{text-wrap:balance}
+.novel-info h1{text-wrap:balance}
+
+/* ---------- buttons: tactile, smooth ---------- */
+.btn:active{transform:translateY(0) scale(.98)}
+.btn:focus-visible,.chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.chip{transition:background .18s ease,border-color .18s ease,color .18s ease,transform .12s ease}
+.chip:active{transform:scale(.95)}
+
+/* ---------- cards: smoother hover ---------- */
+.book-card{transition:transform .25s cubic-bezier(.2,.7,.3,1),box-shadow .25s ease}
+.feat-card{transition:transform .25s cubic-bezier(.2,.7,.3,1),box-shadow .25s ease}
+.chapter-row{transition:background .16s ease,padding-left .16s ease}
+.chapter-row:hover .ch-go{transform:translateX(3px)}
+.chapter-row .ch-go{display:inline-block;transition:transform .16s ease}
+.chapter-row .ch-words{white-space:nowrap}
+
+/* ---------- quote UI polish ---------- */
+.quote-fab{transition:background .18s ease,transform .15s ease}
+.quote-fab:hover{background:var(--accent);transform:translateY(-2px)}
+.quote-fab:active{transform:scale(.95)}
+.quote-card{max-width:460px}
+.quote-card canvas{border:1px solid rgba(185,138,47,.4)}
+.quote-card h3{font-size:24px}
+.quote-actions .btn{min-width:108px}
+
+/* ---------- shelf UI polish ---------- */
+.shelf-menu{padding:8px;animation:pageIn .18s ease both}
+.shelf-menu button{transition:background .14s ease,color .14s ease}
+.shelf-btn{transition:background .18s ease,color .18s ease,border-color .18s ease,transform .12s ease}
+.shelf-btn:active{transform:scale(.92)}
+.shelf-row{margin:2px 0 20px}
+#shelfTabs .chip{position:relative}
+
+/* ---------- finished banner polish ---------- */
+.finished-banner{box-shadow:0 10px 30px rgba(185,138,47,.16)}
+
+/* ---------- toast polish ---------- */
+.toast{transition:opacity .3s ease,transform .3s cubic-bezier(.2,.9,.3,1.2)}
+
+/* ---------- mobile: no overlap, no cut text ---------- */
+@media (max-width:600px){
+  .finished-banner{margin:0 16px 26px;padding:14px 16px;font-size:17px;gap:12px}
+  .chapter-row .ch-words{font-size:11.5px}
+  .chapter-row .ch-title{font-size:14.5px;min-width:0}
+  .quote-actions .btn{min-width:0;flex:1}
+  .find-count{min-width:44px}
+}
+@media (max-width:480px){
+  /* shelf badges: badge moves under the language pill, button stays bottom-right */
+  .book-shelf{bottom:auto;top:36px;left:10px;font-size:9.5px;padding:3px 8px}
+  .shelf-btn{font-size:10px;padding:4px 9px;bottom:8px;right:8px}
+  .book-dl{font-size:9.5px;padding:3px 8px}
+  .book-lang{font-size:10px;padding:3px 9px}
+  .shelf-menu{min-width:170px}
+  .tsep{margin:5px 1px}
+  .reader-tools{gap:5px}
+  .findbar{padding:10px 14px;gap:6px}
+  .quote-fab{font-size:12.5px;padding:9px 15px}
+}
