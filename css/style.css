@@ -460,3 +460,52 @@ body{top:0!important}
   .sort-wrap{margin-left:0;width:100%}
   .sortsel{flex:1}
 }
+
+/* ============================================================
+   AST Novels — Pack 4: quote cards, bookshelves, urdu typeface,
+   reading time, find-in-chapter.
+   ============================================================ */
+
+/* ---------- find bar ---------- */
+.findbar{position:sticky;top:0;z-index:65;background:var(--rbar,#FFFDF8);border-bottom:1px solid var(--rline,#E3D9C2);padding:10px 22px;display:flex;gap:8px;align-items:center}
+.findbar[hidden]{display:none}
+.findbar input{flex:1;min-width:0;padding:9px 14px;border:1.5px solid var(--rline,#E3D9C2);border-radius:999px;font-size:14px;font-family:var(--sans);background:transparent;color:inherit;outline:none}
+.findbar input:focus{border-color:var(--gold)}
+.find-count{font-size:12.5px;color:var(--rmut,#8A7D68);white-space:nowrap;min-width:52px;text-align:center}
+mark.find-hit{background:rgba(185,138,47,.38);color:inherit;border-radius:3px;padding:0 1px}
+mark.find-hit.cur{background:var(--accent);color:#FFF8EC;box-shadow:0 0 0 3px rgba(122,46,46,.25)}
+
+/* ---------- Urdu typeface toggle (Naskh) ---------- */
+.prose.urdu[data-uf="naskh"]{font-family:"Noto Naskh Arabic","Noto Nastaliq Urdu",Georgia,serif;line-height:calc(var(--rlh,1.9)*1.02);font-size:1.02em}
+.prose.urdu[data-uf="naskh"] p:first-of-type::first-letter{font-family:"Noto Naskh Arabic",serif}
+
+/* ---------- quote cards ---------- */
+.quote-fab{position:fixed;z-index:150;background:var(--ink);color:#F3EAD2;border:none;border-radius:999px;padding:10px 18px;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 12px 28px rgba(0,0,0,.35);font-family:var(--sans)}
+.quote-fab:hover{background:var(--accent)}
+.quote-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .3s ease}
+.quote-modal.show{opacity:1}
+.quote-card{max-width:440px}
+.quote-card canvas{width:100%;height:auto;border-radius:12px;display:block;margin:6px 0 18px;box-shadow:var(--shadow)}
+.quote-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.quote-actions .btn{margin:0}
+
+/* ---------- bookshelves ---------- */
+.book-shelf{position:absolute;bottom:10px;left:10px;background:var(--accent);color:#FFF4DE;font-size:10.5px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:999px}
+.shelf-btn{position:absolute;bottom:10px;right:10px;background:rgba(28,24,20,.82);color:#F3EAD2;border:1px solid rgba(243,234,210,.35);font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:var(--sans)}
+.shelf-btn:hover{background:var(--gold);color:#1C1814;border-color:var(--gold)}
+.shelf-menu{position:absolute;z-index:160;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;min-width:190px}
+.shelf-menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:10px 14px;font-size:14px;font-family:var(--sans);color:var(--ink-soft);border-radius:8px;cursor:pointer}
+.shelf-menu button:hover{background:var(--paper-deep);color:var(--ink)}
+.shelf-menu button.on{color:var(--accent);font-weight:700}
+.shelf-menu button.rm{color:var(--muted);border-top:1px solid var(--line);margin-top:4px;border-radius:0 0 8px 8px}
+.shelf-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 18px}
+.shelf-section{margin:10px 0 44px}
+#shelfTabs{margin-bottom:22px}
+#shelfTabs .cnt{opacity:.65;font-weight:500}
+.finished-banner{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;max-width:720px;margin:0 auto 26px;padding:16px 22px;background:var(--rbar);border:1px solid var(--gold);border-radius:14px;font-family:var(--serif-display);font-size:19px}
+.finished-banner .fb-done{color:var(--accent);font-weight:600}
+
+@media (max-width:600px){
+  .findbar{padding:8px 14px}
+  .shelf-row .chip{font-size:12.5px;padding:8px 14px}
+}
