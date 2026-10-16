@@ -1,5 +1,5 @@
-/* AST Novels service worker — offline-first reading. */
-var CACHE = 'ast-novels-v1';
+/* AST Novels service worker — offline-first reading. v2: full app shell + platform JS. */
+var CACHE = 'ast-novels-v2';
 var SHELL = [
   './',
   './index.html',
@@ -7,12 +7,16 @@ var SHELL = [
   './novel.html',
   './read.html',
   './about.html',
+  './urdu-novels.html',
+  './authors.html',
+  './stats.html',
   './privacy-policy.html',
   './offline.html',
   './css/style.css',
   './js/main.js',
   './js/site.js',
   './js/reader.js',
+  './js/platform.js',
   './manifest.json',
   './data/novels/index.json',
   './img/favicon.svg',
