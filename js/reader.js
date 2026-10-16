@@ -212,14 +212,17 @@
             '<button class="tool-btn" id="tMinus" aria-label="Smaller text" title="Smaller text">A&minus;</button>' +
             '<button class="tool-btn" id="tPlus" aria-label="Larger text" title="Larger text">A+</button>' +
             '<button class="tool-btn" id="tLH" aria-label="Line spacing" title="Line spacing">&#8801;</button>' +
+            '<span class="tsep" aria-hidden="true"></span>' +
             '<button class="tool-btn" id="tDay" aria-label="Light theme" title="Light">&#9728;</button>' +
             '<button class="tool-btn" id="tSepia" aria-label="Sepia theme" title="Sepia">&#9696;</button>' +
             '<button class="tool-btn" id="tDark" aria-label="Dark theme" title="Dark">&#9790;</button>' +
             '<button class="tool-btn" id="tNight" aria-label="Night black theme" title="Night black">&#11035;</button>' +
+            '<span class="tsep" aria-hidden="true"></span>' +
             '<button class="tool-btn" id="tListen" aria-label="Listen to this chapter" title="Listen to this chapter">&#9654; Listen</button>' +
             '<button class="tool-btn" id="tRate" aria-label="Narration speed" title="Narration speed">1&times;</button>' +
             '<button class="tool-btn" id="tFind" aria-label="Find in chapter" title="Find in chapter">&#8981;</button>' +
             (u ? '<button class="tool-btn" id="tUrduFont" aria-label="Urdu typeface" title="Urdu typeface: Nastaliq / Naskh">Nastaliq</button>' : '') +
+            '<span class="tsep" aria-hidden="true"></span>' +
             '<select class="tool-btn" id="chSel" aria-label="Choose chapter"></select>' +
           '</div>' +
         '</div></div>' +
