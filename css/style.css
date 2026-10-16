@@ -112,6 +112,23 @@ nav{position:sticky;top:0;z-index:50;background:rgba(250,246,238,.94);backdrop-f
 .book-cover img{width:100%;height:100%;object-fit:cover;transition:transform .5s cubic-bezier(.2,.6,.2,1)}
 .book-card:hover .book-cover img{transform:scale(1.045)}
 .book-lang{position:absolute;top:10px;left:10px;background:rgba(28,24,20,.82);color:#F3EAD2;font-size:11px;font-weight:600;letter-spacing:1px;padding:4px 10px;border-radius:999px;text-transform:uppercase}
+.book-dl{position:absolute;top:10px;right:10px;background:var(--gold);color:#1C1814;font-size:10.5px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:999px}
+.btn.dl-on{border-color:var(--gold);color:var(--gold);font-weight:700}
+/* ---------- reading goal ring ---------- */
+.goal-card{display:flex;align-items:center;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow);margin-bottom:34px}
+.goal-ring{position:relative;width:110px;height:110px;flex:none}
+.goal-ring svg{transform:rotate(-90deg)}
+.goal-ring .gr-bg{stroke:var(--line)}
+.goal-ring .gr-fg{stroke:var(--gold);stroke-linecap:round;transition:stroke-dashoffset .6s ease}
+.goal-ring .gr-txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.goal-ring .gr-txt b{font-size:19px;font-family:var(--serif-display)}
+.goal-ring .gr-txt span{font-size:10.5px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.goal-body{flex:1}
+.goal-body h3{font-family:var(--serif-display);font-size:22px;margin-bottom:4px}
+.goal-body p{font-size:13.5px;color:var(--muted);margin-bottom:12px}
+.goal-set{display:flex;gap:8px;flex-wrap:wrap}
+.goal-set .chip{cursor:pointer}
+@media (max-width:560px){.goal-card{flex-direction:column;text-align:center}.goal-set{justify-content:center}}
 .book-body{padding:16px 18px 20px;display:flex;flex-direction:column;gap:6px;flex:1}
 .book-title{font-family:var(--serif-display);font-size:20px;font-weight:600;line-height:1.3}
 .book-title.urdu{font-family:var(--urdu);direction:rtl;text-align:right;line-height:2}
@@ -259,22 +276,27 @@ footer{background:var(--ink);color:#B9AC8D;margin-top:0}
 .reveal.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
 
-/* ---------- install banner (PWA) ---------- */
-.install-banner{
-  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120px);
-  background:var(--ink);color:#F3EAD2;border-radius:16px;padding:16px 20px;
-  display:flex;align-items:center;gap:16px;z-index:90;max-width:min(480px,calc(100vw - 40px));
-  box-shadow:0 20px 50px rgba(0,0,0,.35);transition:transform .4s cubic-bezier(.2,.9,.3,1.2);
-  border:1px solid #3a332a;
-}
-.install-banner.show{transform:translateX(-50%) translateY(0)}
-.install-banner .ib-icon{width:46px;height:46px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex:none}
-.install-banner .ib-icon svg{width:26px;height:26px}
-.install-banner .ib-text{flex:1}
-.install-banner .ib-text b{display:block;font-size:14.5px}
-.install-banner .ib-text span{font-size:12.5px;color:#B9AC8D}
-.install-banner .ib-install{background:var(--gold);border:none;color:#1C1814;font-weight:700;font-size:13.5px;padding:10px 20px;border-radius:999px;cursor:pointer;white-space:nowrap}
-.install-banner .ib-close{background:none;border:none;color:#8a7c5c;font-size:18px;cursor:pointer;padding:4px}
+/* ---------- install modal (PWA) ---------- */
+.install-modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .3s ease}
+.install-modal.show{opacity:1}
+.im-backdrop{position:absolute;inset:0;background:rgba(28,24,20,.62);backdrop-filter:blur(3px)}
+.im-card{position:relative;background:var(--card);border-radius:20px;max-width:400px;width:100%;padding:36px 32px 28px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35);border:1px solid var(--line);transform:translateY(16px) scale(.98);transition:transform .35s cubic-bezier(.2,.9,.3,1.15)}
+.install-modal.show .im-card{transform:translateY(0) scale(1)}
+.im-close{position:absolute;top:10px;right:14px;background:none;border:none;font-size:26px;color:var(--muted);cursor:pointer;line-height:1;padding:6px}
+.im-icon{width:84px;height:84px;margin:0 auto 16px;border-radius:22px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line)}
+.im-icon img{width:100%;height:100%;object-fit:cover}
+.im-card h3{font-size:26px;margin-bottom:4px}
+.im-sub{color:var(--muted);font-size:14px;margin-bottom:20px}
+.im-bullets{list-style:none;text-align:left;margin:0 0 24px;padding:0;display:flex;flex-direction:column;gap:11px}
+.im-bullets li{font-size:14.5px;color:var(--ink-soft);display:flex;gap:10px;align-items:flex-start}
+.im-tick{color:var(--gold);font-weight:700;flex:none}
+.im-install{width:100%;font-size:16px;padding:14px;margin-bottom:10px}
+.im-later{background:none;border:none;color:var(--muted);font-size:13.5px;cursor:pointer;padding:8px;text-decoration:underline}
+.im-manual{text-align:left;background:var(--paper-deep);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.im-manual-title{font-weight:700;font-size:14px;margin-bottom:10px;color:var(--ink)}
+.im-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.im-steps li{font-size:13.5px;color:var(--ink-soft);line-height:1.55}
+.im-steps b{color:var(--ink)}
 
 /* ---------- offline page ---------- */
 .offline-hero{text-align:center;padding:100px 28px}
@@ -323,7 +345,7 @@ body{top:0!important}
   .feat-card h3{font-size:20px}
   .chapter-row{padding:14px 16px;gap:12px}
   .chapter-row .ch-num{min-width:34px;font-size:17px}
-  .install-banner{padding:14px 14px;gap:12px}
+  .im-card{padding:30px 24px 24px}
 }
 
 /* ---------- responsive ---------- */
