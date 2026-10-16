@@ -1,4 +1,5 @@
 /* AST Novels service worker — offline-first reading. v2: full app shell + platform JS. */
+/* Deploy sync: ensures latest tree (novels/ SEO pages + downloads + goals) is the production build. */
 var CACHE = 'ast-novels-v2';
 var SHELL = [
   './',
