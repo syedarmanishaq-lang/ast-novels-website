@@ -216,6 +216,8 @@
             '<button class="tool-btn" id="tSepia" aria-label="Sepia theme" title="Sepia">&#9696;</button>' +
             '<button class="tool-btn" id="tDark" aria-label="Dark theme" title="Dark">&#9790;</button>' +
             '<button class="tool-btn" id="tNight" aria-label="Night black theme" title="Night black">&#11035;</button>' +
+            '<button class="tool-btn" id="tListen" aria-label="Listen to this chapter" title="Listen to this chapter">&#9654; Listen</button>' +
+            '<button class="tool-btn" id="tRate" aria-label="Narration speed" title="Narration speed">1&times;</button>' +
             '<select class="tool-btn" id="chSel" aria-label="Choose chapter"></select>' +
           '</div>' +
         '</div></div>' +
@@ -276,6 +278,100 @@
         store.set('bookmarks', b); paintFab();
       });
 
+      /* ---------- read aloud (Web Speech API, sentence by sentence) ---------- */
+      var tts = { state: 'idle', idx: 0, rate: 1, spans: [] };
+      var TTS_RATES = [1, 1.25, 1.5, 0.75];
+      function ttsSupported(){ return ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window); }
+      function ttsPickVoice(){
+        try{
+          var vs = window.speechSynthesis.getVoices() || [];
+          var want = u ? 'ur' : 'en';
+          for(var i = 0; i < vs.length; i++){
+            if(String(vs[i].lang || '').toLowerCase().indexOf(want) === 0) return vs[i];
+          }
+        }catch(e){}
+        return null;
+      }
+      function ttsClearHL(){
+        var on = body.querySelectorAll('.tts-s.on');
+        for(var i = 0; i < on.length; i++) on[i].classList.remove('on');
+      }
+      function ttsStop(){
+        try{ window.speechSynthesis.cancel(); }catch(e){}
+        tts.state = 'idle'; tts.idx = 0;
+        ttsClearHL();
+        paintListen();
+      }
+      function ttsSpeak(i){
+        var spans = tts.spans;
+        if(i >= spans.length){ ttsStop(); return; }
+        tts.idx = i;
+        ttsClearHL();
+        var sp = spans[i];
+        sp.classList.add('on');
+        try{
+          var r = sp.getBoundingClientRect();
+          if(r.top < 90 || r.bottom > window.innerHeight - 90) sp.scrollIntoView({block: 'center'});
+        }catch(e){}
+        var ut;
+        try{ ut = new SpeechSynthesisUtterance(sp.textContent); }
+        catch(e){ ttsStop(); return; }
+        ut.lang = u ? 'ur-PK' : 'en-US';
+        ut.rate = tts.rate;
+        var v = ttsPickVoice();
+        if(v) ut.voice = v;
+        ut.onend = function(){ if(tts.state === 'playing') ttsSpeak(i + 1); };
+        ut.onerror = function(){ if(tts.state === 'playing') ttsSpeak(i + 1); };
+        try{ window.speechSynthesis.speak(ut); }catch(e){ ttsStop(); }
+      }
+      function ttsToggle(){
+        if(!ttsSupported()) return;
+        if(tts.state === 'playing'){
+          try{ window.speechSynthesis.pause(); }catch(e){}
+          tts.state = 'paused'; paintListen(); return;
+        }
+        if(tts.state === 'paused'){
+          try{ window.speechSynthesis.resume(); }catch(e){}
+          tts.state = 'playing'; paintListen(); return;
+        }
+        try{ window.speechSynthesis.cancel(); }catch(e){}
+        tts.spans = Array.prototype.slice.call(body.querySelectorAll('.tts-s'));
+        if(!tts.spans.length) return;
+        tts.state = 'playing';
+        paintListen();
+        ttsSpeak(0);
+      }
+      function paintListen(){
+        var b = shell.querySelector('#tListen');
+        if(!b) return;
+        b.classList.toggle('on', tts.state !== 'idle');
+        b.innerHTML = tts.state === 'playing' ? '&#10074;&#10074; Pause'
+          : (tts.state === 'paused' ? '&#9654; Resume' : '&#9654; Listen');
+      }
+      var listenBtn = shell.querySelector('#tListen'),
+          rateBtn = shell.querySelector('#tRate');
+      if(!ttsSupported()){
+        listenBtn.style.display = 'none';
+        rateBtn.style.display = 'none';
+      } else {
+        if('onvoiceschanged' in window.speechSynthesis){
+          window.speechSynthesis.onvoiceschanged = function(){};
+        }
+        listenBtn.addEventListener('click', ttsToggle);
+        rateBtn.addEventListener('click', function(){
+          tts.rate = TTS_RATES[(TTS_RATES.indexOf(tts.rate) + 1) % TTS_RATES.length];
+          rateBtn.textContent = tts.rate + '×';
+          if(tts.state === 'playing' || tts.state === 'paused'){
+            var i = tts.idx;
+            try{ window.speechSynthesis.cancel(); }catch(e){}
+            tts.state = 'playing';
+            paintListen();
+            ttsSpeak(i);
+          }
+        });
+        window.addEventListener('pagehide', ttsStop);
+      }
+
       function markRead(i){
         var r = store.get('read', {}); r[slug] = r[slug] || [];
         if(r[slug].indexOf(i) === -1) r[slug].push(i);
@@ -288,10 +384,29 @@
       }
 
       function go(i){
+        ttsStop();
         ch = Math.min(Math.max(i, 0), n.chapters.length - 1);
         render();
         window.scrollTo(0, 0);
         history.replaceState(null, '', 'read.html?id=' + encodeURIComponent(slug) + '&ch=' + ch);
+      }
+
+      /* Split chapter text into sentences; each becomes a highlightable span for read-aloud. */
+      function splitSentences(text){
+        var out = [], re = /[^.!?…۔؟]+[.!?…۔؟]+["'”’)\]]?|[^.!?…۔؟]+$/g, m;
+        while((m = re.exec(text)) !== null){
+          var s = m[0].trim();
+          if(s) out.push(s);
+        }
+        return out.length ? out : [text];
+      }
+      function proseTTS(text){
+        return String(text || '').split(/\n\s*\n/).map(function(p){
+          var inner = splitSentences(p.trim()).map(function(s){
+            return '<span class="tts-s">' + AN.esc(s) + '</span>';
+          }).join(' ');
+          return '<p>' + inner.replace(/\n/g, '<br>') + '</p>';
+        }).join('');
       }
 
       function render(){
@@ -303,7 +418,7 @@
           '<div class="ch-kicker">Chapter ' + (ch + 1) + ' of ' + n.chapters.length + '</div>' +
           '<h1 class="chapter-title' + (u ? ' urdu' : '') + '">' + AN.esc(c.title || ('Chapter ' + (ch + 1))) + '</h1>' +
           '<div class="ch-byline">' + AN.esc(n.title) + ' · by ' + AN.esc(n.author) + '</div>' +
-          '<div class="prose' + (u ? ' urdu' : '') + '">' + para(c.text) + '</div>';
+          '<div class="prose' + (u ? ' urdu' : '') + '">' + proseTTS(c.text) + '</div>';
         var prev = n.chapters[ch - 1], next = n.chapters[ch + 1];
         nav.innerHTML =
           (prev ? '<a href="read.html?id=' + AN.esc(slug) + '&ch=' + (ch - 1) + '" data-nav="' + (ch - 1) + '"><span class="lbl">&larr; Previous</span><span class="t">' + AN.esc(prev.title || ('Chapter ' + ch)) + '</span></a>'
@@ -336,6 +451,8 @@
       if(saved && saved.ch === ch && saved.scroll > 200){
         setTimeout(function(){ window.scrollTo(0, saved.scroll); }, 60);
       }
+      /* platform: reading-time stats */
+      if(window.ASTPlatform) window.ASTPlatform.trackReading(slug);
   }
 
   /* ================= PDF-mode reader (Drive-hosted PDFs via PDF.js) =================
@@ -490,6 +607,8 @@
       document.title = n.title + ' — AST Novels';
       setCur(startPage);
       renderAll(false);
+      /* platform: reading-time stats */
+      if(window.ASTPlatform) window.ASTPlatform.trackReading(slug);
     }).catch(function(){
       root.innerHTML = sourceErrorHTML(n);
     });
