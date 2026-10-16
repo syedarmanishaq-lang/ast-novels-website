@@ -115,6 +115,26 @@
     if(b){ b.classList.remove('show'); setTimeout(function(){ b.remove(); }, 450); }
   }
 
+  /* ---------- footer "Install app" link: always available, even if the banner was dismissed ---------- */
+  var installLink = document.getElementById('installAppLink');
+  if(installLink){
+    // hide the link when already running as the installed app
+    try{
+      if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone){ installLink.style.display = 'none'; }
+    }catch(e){}
+    installLink.addEventListener('click', function(e){
+      e.preventDefault();
+      if(deferredPrompt){
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(){ deferredPrompt = null; hideInstallBanner(); });
+        return;
+      }
+      // No auto-prompt available: show manual steps.
+      var msg = 'To install AST Novels:\n\n• Chrome (Android): tap ⋮ menu → "Install app" or "Add to Home screen"\n• iPhone (Safari): tap Share → "Add to Home Screen"';
+      alert(msg);
+    });
+  }
+
   /* expose shared helpers */
   window.ASTNovels = { esc: esc, words: words, getOverride: getOverride, listOverrides: listOverrides, listTrash: listTrash, isTrashed: isTrashed };
 })();
