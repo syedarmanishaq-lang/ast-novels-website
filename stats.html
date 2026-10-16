@@ -66,6 +66,27 @@
       <div class="stat-card"><b id="stStreak">—</b><span>Day streak</span></div>
     </div>
 
+    <div class="goal-card" id="goalCard">
+      <div class="goal-ring">
+        <svg width="110" height="110" viewBox="0 0 110 110" aria-hidden="true">
+          <circle class="gr-bg" cx="55" cy="55" r="48" fill="none" stroke-width="9"/>
+          <circle class="gr-fg" id="goalArc" cx="55" cy="55" r="48" fill="none" stroke-width="9"
+                  stroke-dasharray="301.6" stroke-dashoffset="301.6"/>
+        </svg>
+        <div class="gr-txt"><b id="goalPct">0%</b><span>today</span></div>
+      </div>
+      <div class="goal-body">
+        <h3>Daily reading goal</h3>
+        <p id="goalLine">Set a daily target and watch the ring fill as you read.</p>
+        <div class="goal-set" id="goalSet">
+          <button class="chip" data-min="15">15 min</button>
+          <button class="chip" data-min="30">30 min</button>
+          <button class="chip" data-min="45">45 min</button>
+          <button class="chip" data-min="60">1 hour</button>
+        </div>
+      </div>
+    </div>
+
     <div class="chapter-section">
       <h2 class="serif sec-title" style="font-size:28px;margin-bottom:14px">Your top books</h2>
       <div id="topBooks"><p class="count-line">Start reading and your most-read books will appear here.</p></div>
@@ -114,6 +135,43 @@
     document.getElementById('stTime').textContent = fmtTime(stats.sec);
     document.getElementById('stChapters').textContent = P.chaptersFinished();
     document.getElementById('stStreak').textContent = P.dayStreak() + (P.dayStreak() === 1 ? ' day' : ' days');
+
+    /* ---------- daily reading goal ---------- */
+    (function(){
+      var CIRC = 301.6;
+      var arc = document.getElementById('goalArc');
+      var pctEl = document.getElementById('goalPct');
+      var line = document.getElementById('goalLine');
+      var setBox = document.getElementById('goalSet');
+      function paint(){
+        var goal = P.getGoalMin();
+        var done = Math.round(P.todaySeconds() / 60);
+        var pct = Math.min(100, Math.round((done / goal) * 100));
+        if(arc) arc.style.strokeDashoffset = String(CIRC * (1 - pct / 100));
+        if(pctEl) pctEl.textContent = pct + '%';
+        if(line){
+          line.textContent = done >= goal
+            ? 'Goal reached — ' + done + ' of ' + goal + ' minutes today. Brilliant reading.'
+            : done + ' of ' + goal + ' minutes today. Keep going.';
+        }
+        if(setBox){
+          setBox.querySelectorAll('.chip').forEach(function(c){
+            c.classList.toggle('on', parseInt(c.getAttribute('data-min'), 10) === goal);
+          });
+        }
+      }
+      if(setBox){
+        setBox.querySelectorAll('.chip').forEach(function(c){
+          c.addEventListener('click', function(){
+            P.setGoalMin(c.getAttribute('data-min'));
+            paint();
+          });
+        });
+      }
+      paint();
+      // refresh the ring while the page is open (reading happens in other tabs)
+      setInterval(paint, 15000);
+    })();
 
     Site.loadCatalog().then(function(novels){
       document.getElementById('stNovels').textContent = P.novelsCompleted(novels);
