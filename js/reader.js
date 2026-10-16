@@ -218,9 +218,18 @@
             '<button class="tool-btn" id="tNight" aria-label="Night black theme" title="Night black">&#11035;</button>' +
             '<button class="tool-btn" id="tListen" aria-label="Listen to this chapter" title="Listen to this chapter">&#9654; Listen</button>' +
             '<button class="tool-btn" id="tRate" aria-label="Narration speed" title="Narration speed">1&times;</button>' +
+            '<button class="tool-btn" id="tFind" aria-label="Find in chapter" title="Find in chapter">&#8981;</button>' +
+            (u ? '<button class="tool-btn" id="tUrduFont" aria-label="Urdu typeface" title="Urdu typeface: Nastaliq / Naskh">Nastaliq</button>' : '') +
             '<select class="tool-btn" id="chSel" aria-label="Choose chapter"></select>' +
           '</div>' +
         '</div></div>' +
+        '<div class="findbar" id="findBar" hidden>' +
+          '<input id="findInput" type="search" placeholder="Find in this chapter…" aria-label="Find in chapter" autocomplete="off">' +
+          '<span class="find-count" id="findCount"></span>' +
+          '<button class="tool-btn" id="findPrev" aria-label="Previous match" title="Previous match">&uarr;</button>' +
+          '<button class="tool-btn" id="findNext" aria-label="Next match" title="Next match">&darr;</button>' +
+          '<button class="tool-btn" id="findClose" aria-label="Close find" title="Close">&times;</button>' +
+        '</div>' +
         '<div class="reader-body" id="rBody"></div>' +
         '<div class="reader-nav" id="rNav"></div>' +
         '<button class="bookmark-fab" id="bmFab" aria-label="Bookmark this chapter" title="Bookmark this chapter">☆</button>';
@@ -234,9 +243,14 @@
           fab = shell.querySelector('#bmFab'),
           sel = shell.querySelector('#chSel');
 
-      /* chapter dropdown */
+      /* chapter dropdown (with per-chapter reading time) */
+      var P0 = window.ASTPlatform;
+      function chWords(i){
+        return String((n.chapters[i] && n.chapters[i].text) || '').trim().split(/\s+/).filter(Boolean).length;
+      }
       sel.innerHTML = n.chapters.map(function(c, i){
-        return '<option value="' + i + '">Ch. ' + (i + 1) + ' — ' + AN.esc((c.title || '').slice(0, 40)) + '</option>';
+        var t = P0 ? ' — ' + P0.fmtShortTime(P0.readTimeMin(chWords(i), n.language)) : '';
+        return '<option value="' + i + '">Ch. ' + (i + 1) + ' — ' + AN.esc((c.title || '').slice(0, 32)) + t + '</option>';
       }).join('');
       sel.value = String(ch);
       sel.addEventListener('change', function(){ go(parseInt(sel.value, 10)); });
@@ -258,6 +272,114 @@
       shell.querySelector('#tLH').addEventListener('click', function(){
         lh = LH_STEPS[(LH_STEPS.indexOf(lh) + 1) % LH_STEPS.length];
         store.set('reader_lineheight', lh); paintLH();
+      });
+
+      /* ---------- Urdu typeface: Nastaliq (default) vs Naskh ---------- */
+      var urdufont = store.get('reader_urdufont', 'nastaliq');
+      if(urdufont !== 'naskh') urdufont = 'nastaliq';
+      function paintUrduFont(){
+        var prose = body.querySelector('.prose.urdu');
+        if(prose) prose.setAttribute('data-uf', urdufont);
+        var b = shell.querySelector('#tUrduFont');
+        if(b){
+          b.textContent = urdufont === 'naskh' ? 'Naskh' : 'Nastaliq';
+          b.title = 'Urdu typeface: ' + (urdufont === 'naskh' ? 'Naskh (plain)' : 'Nastaliq (calligraphic)');
+          b.classList.toggle('on', urdufont === 'naskh');
+        }
+      }
+      var ufBtn = shell.querySelector('#tUrduFont');
+      if(ufBtn){
+        ufBtn.addEventListener('click', function(){
+          urdufont = (urdufont === 'naskh') ? 'nastaliq' : 'naskh';
+          store.set('reader_urdufont', urdufont);
+          paintUrduFont();
+        });
+      }
+
+      /* ---------- find in chapter ---------- */
+      var findBar = shell.querySelector('#findBar'),
+          findInput = shell.querySelector('#findInput'),
+          findCount = shell.querySelector('#findCount'),
+          findIdx = -1, findHits = [];
+      function findClear(){
+        body.querySelectorAll('mark.find-hit').forEach(function(mk){
+          var t = document.createTextNode(mk.textContent);
+          mk.parentNode.replaceChild(t, mk);
+        });
+        // merge adjacent text nodes left behind
+        body.normalize();
+        findHits = []; findIdx = -1;
+        findCount.textContent = '';
+      }
+      function findGo(d){
+        if(!findHits.length) return;
+        findIdx = (findIdx + d + findHits.length) % findHits.length;
+        findHits.forEach(function(h, i){ h.classList.toggle('cur', i === findIdx); });
+        try{
+          findHits[findIdx].scrollIntoView({block: 'center', behavior: 'smooth'});
+        }catch(e){
+          try{ findHits[findIdx].scrollIntoView({block: 'center'}); }catch(e2){}
+        }
+        findCount.textContent = (findIdx + 1) + ' / ' + findHits.length;
+      }
+      function findRun(){
+        findClear();
+        var q = findInput.value;
+        if(!q || q.length < 2) return;
+        var prose = body.querySelector('.prose');
+        if(!prose) return;
+        var ql = q.toLowerCase();
+        var walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT, null, false);
+        var nodes = [], tn;
+        while((tn = walker.nextNode())){ nodes.push(tn); }
+        nodes.forEach(function(node){
+          var text = node.nodeValue, tl = text.toLowerCase(), out = [], pos = 0, ix;
+          while((ix = tl.indexOf(ql, pos)) !== -1){
+            if(ix > pos) out.push(document.createTextNode(text.slice(pos, ix)));
+            var mk = document.createElement('mark');
+            mk.className = 'find-hit';
+            mk.textContent = text.slice(ix, ix + q.length);
+            out.push(mk);
+            pos = ix + q.length;
+          }
+          if(out.length){
+            if(pos < text.length) out.push(document.createTextNode(text.slice(pos)));
+            var frag = document.createDocumentFragment();
+            out.forEach(function(x){ frag.appendChild(x); });
+            node.parentNode.replaceChild(frag, node);
+          }
+        });
+        findHits = Array.prototype.slice.call(prose.querySelectorAll('mark.find-hit'));
+        if(findHits.length){
+          findIdx = -1;
+          findGo(1);
+        } else {
+          findCount.textContent = '0 found';
+        }
+      }
+      function findOpen(){
+        findBar.hidden = false;
+        setTimeout(function(){ findInput.focus(); }, 30);
+      }
+      function findClose(){
+        findBar.hidden = true;
+        findInput.value = '';
+        findClear();
+      }
+      shell.querySelector('#tFind').addEventListener('click', function(){
+        if(findBar.hidden) findOpen(); else findClose();
+      });
+      shell.querySelector('#findClose').addEventListener('click', findClose);
+      shell.querySelector('#findNext').addEventListener('click', function(){ findGo(1); });
+      shell.querySelector('#findPrev').addEventListener('click', function(){ findGo(-1); });
+      var findDeb = null;
+      findInput.addEventListener('input', function(){
+        if(findDeb) clearTimeout(findDeb);
+        findDeb = setTimeout(findRun, 220);
+      });
+      findInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); findGo(e.shiftKey ? -1 : 1); }
+        if(e.key === 'Escape'){ findClose(); }
       });
       shell.querySelector('#tDay').addEventListener('click', function(){ theme = 'day'; store.set('reader_theme', theme); paintTheme(); });
       shell.querySelector('#tSepia').addEventListener('click', function(){ theme = 'sepia'; store.set('reader_theme', theme); paintTheme(); });
@@ -372,6 +494,172 @@
         window.addEventListener('pagehide', ttsStop);
       }
 
+      /* ---------- quote cards: select text -> floating button -> 1080x1080 canvas card ---------- */
+      var quoteFab = null;
+      function quoteHideFab(){
+        if(quoteFab){ quoteFab.remove(); quoteFab = null; }
+      }
+      function quoteSelection(){
+        var sel = window.getSelection();
+        if(!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+        var text = sel.toString().replace(/\s+/g, ' ').trim();
+        if(text.length < 12 || text.length > 600) return null;
+        var node = sel.anchorNode;
+        if(!node) return null;
+        var el = (node.nodeType === 1) ? node : node.parentElement;
+        if(!el || !el.closest || !el.closest('.prose')) return null;
+        var r = sel.getRangeAt(0).getBoundingClientRect();
+        if(!r || (r.width === 0 && r.height === 0)) return null;
+        return { text: text, rect: r };
+      }
+      function quoteShowFab(){
+        var q = quoteSelection();
+        if(!q){ quoteHideFab(); return; }
+        if(!quoteFab){
+          quoteFab = document.createElement('button');
+          quoteFab.type = 'button';
+          quoteFab.className = 'quote-fab';
+          quoteFab.textContent = 'Share quote';
+          quoteFab.setAttribute('aria-label', 'Share this quote as an image');
+          quoteFab.addEventListener('mousedown', function(e){ e.preventDefault(); });
+          quoteFab.addEventListener('click', function(e){
+            e.preventDefault();
+            var qq = quoteSelection();
+            quoteHideFab();
+            if(qq) quoteOpenModal(qq.text);
+          });
+          document.body.appendChild(quoteFab);
+        }
+        var r = q.rect;
+        quoteFab.style.top = Math.max(8, r.top - 52) + 'px';
+        quoteFab.style.left = Math.max(8, Math.min(window.innerWidth - 150, r.left + r.width / 2 - 70)) + 'px';
+      }
+      document.addEventListener('selectionchange', function(){
+        // debounce lightly so the button doesn't flicker while dragging
+        if(quoteShowFab._t) clearTimeout(quoteShowFab._t);
+        quoteShowFab._t = setTimeout(quoteShowFab, 180);
+      });
+      document.addEventListener('scroll', quoteHideFab, {passive: true, capture: true});
+
+      function quoteWrap(ctx, text, maxW){
+        var words = text.split(/\s+/), lines = [], line = '';
+        words.forEach(function(w){
+          var test = line ? (line + ' ' + w) : w;
+          if(ctx.measureText(test).width > maxW && line){ lines.push(line); line = w; }
+          else line = test;
+        });
+        if(line) lines.push(line);
+        return lines;
+      }
+      function quoteOpenModal(text){
+        var isUr = u;
+        var m = document.createElement('div');
+        m.className = 'quote-modal';
+        m.setAttribute('role', 'dialog');
+        m.setAttribute('aria-label', 'Share quote');
+        m.innerHTML =
+          '<div class="im-backdrop"></div>' +
+          '<div class="im-card quote-card">' +
+            '<button class="im-close" aria-label="Close">&times;</button>' +
+            '<h3 class="serif">Share this quote</h3>' +
+            '<p class="im-sub">A beautiful card, ready to share.</p>' +
+            '<canvas id="quoteCanvas" width="1080" height="1080"></canvas>' +
+            '<div class="quote-actions">' +
+              '<button class="btn btn-sm" id="qDownload">Download PNG</button>' +
+              '<button class="btn btn-sm btn-gold" id="qShare">Share</button>' +
+              '<a class="btn btn-sm btn-ghost" id="qWa" target="_blank" rel="noopener">WhatsApp</a>' +
+            '</div>' +
+          '</div>';
+        document.body.appendChild(m);
+        document.body.style.overflow = 'hidden';
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){ m.classList.add('show'); }); });
+        function close(){
+          m.classList.remove('show');
+          setTimeout(function(){ m.remove(); }, 350);
+          document.body.style.overflow = '';
+        }
+        m.querySelector('.im-backdrop').addEventListener('click', close);
+        m.querySelector('.im-close').addEventListener('click', close);
+
+        var cv = m.querySelector('#quoteCanvas');
+        var ctx = cv.getContext('2d');
+        // background: deep oxblood gradient
+        var g = ctx.createLinearGradient(0, 0, 1080, 1080);
+        g.addColorStop(0, '#6E2A2A'); g.addColorStop(0.55, '#4A1C1C'); g.addColorStop(1, '#2A1210');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, 1080, 1080);
+        // gold double border
+        ctx.strokeStyle = '#B98A2F'; ctx.lineWidth = 6; ctx.strokeRect(48, 48, 984, 984);
+        ctx.lineWidth = 2; ctx.strokeRect(72, 72, 936, 936);
+        // corner ticks
+        ctx.fillStyle = '#B98A2F';
+        [[48,48],[1032,48],[48,1032],[1032,1032]].forEach(function(p){
+          ctx.beginPath(); ctx.arc(p[0], p[1], 10, 0, Math.PI * 2); ctx.fill();
+        });
+        // quote mark
+        ctx.fillStyle = 'rgba(185,138,47,.35)';
+        ctx.font = '220px Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('\u201C', 540, 300);
+        // quote text
+        var display = text.length > 300 ? text.slice(0, 297).trim() + '\u2026' : text;
+        ctx.fillStyle = '#FFF6E3';
+        ctx.direction = isUr ? 'rtl' : 'ltr';
+        ctx.textAlign = 'center';
+        ctx.font = isUr ? '54px "Noto Nastaliq Urdu", serif' : 'italic 52px Georgia, serif';
+        var lines = quoteWrap(ctx, display, 880);
+        var lineH = isUr ? 108 : 78;
+        var maxLines = 9;
+        if(lines.length > maxLines){
+          lines = lines.slice(0, maxLines);
+          lines[maxLines - 1] = lines[maxLines - 1].replace(/\s+\S*$/, '').trim() + '\u2026';
+        }
+        var startY = 540 - ((lines.length - 1) * lineH) / 2;
+        lines.forEach(function(ln, i){ ctx.fillText(ln, 540, startY + i * lineH); });
+        // divider
+        ctx.strokeStyle = '#B98A2F'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(440, 830); ctx.lineTo(640, 830); ctx.stroke();
+        // attribution
+        ctx.direction = 'ltr';
+        ctx.fillStyle = '#EADFC3';
+        ctx.font = '600 34px Georgia, serif';
+        ctx.fillText(n.title, 540, 890);
+        ctx.fillStyle = '#B98A2F';
+        ctx.font = '28px Georgia, serif';
+        ctx.fillText('\u2014 AST Novels', 540, 940);
+
+        var pageUrl = 'https://ast-novels.vercel.app/novel.html?id=' + encodeURIComponent(slug);
+        var shareText = '\u201C' + display + '\u201D \u2014 ' + n.title + ', via AST Novels ' + pageUrl;
+        m.querySelector('#qWa').href = 'https://wa.me/?text=' + encodeURIComponent(shareText);
+        m.querySelector('#qDownload').addEventListener('click', function(){
+          cv.toBlob(function(blob){
+            if(!blob) return;
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'ast-novels-quote.png';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+          }, 'image/png');
+        });
+        m.querySelector('#qShare').addEventListener('click', function(){
+          cv.toBlob(function(blob){
+            var done = false;
+            if(blob && navigator.canShare){
+              try{
+                var file = new File([blob], 'ast-novels-quote.png', {type: 'image/png'});
+                if(navigator.canShare({files: [file]})){
+                  navigator.share({files: [file], title: n.title + ' — AST Novels', text: shareText}).catch(function(){});
+                  done = true;
+                }
+              }catch(e){}
+            }
+            if(!done){
+              // fallback: WhatsApp with text
+              window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank', 'noopener');
+            }
+          }, 'image/png');
+        });
+      }
+
       function markRead(i){
         var r = store.get('read', {}); r[slug] = r[slug] || [];
         if(r[slug].indexOf(i) === -1) r[slug].push(i);
@@ -414,11 +702,13 @@
         document.title = (c.title || ('Chapter ' + (ch + 1))) + ' — ' + n.title + ' — AST Novels';
         title.textContent = n.title;
         sel.value = String(ch);
+        findClear();
+        quoteHideFab();
         body.innerHTML =
           '<div class="ch-kicker">Chapter ' + (ch + 1) + ' of ' + n.chapters.length + '</div>' +
           '<h1 class="chapter-title' + (u ? ' urdu' : '') + '">' + AN.esc(c.title || ('Chapter ' + (ch + 1))) + '</h1>' +
           '<div class="ch-byline">' + AN.esc(n.title) + ' · by ' + AN.esc(n.author) + '</div>' +
-          '<div class="prose' + (u ? ' urdu' : '') + '">' + proseTTS(c.text) + '</div>';
+          '<div class="prose' + (u ? ' urdu' : '') + '" data-uf="' + urdufont + '">' + proseTTS(c.text) + '</div>';
         var prev = n.chapters[ch - 1], next = n.chapters[ch + 1];
         nav.innerHTML =
           (prev ? '<a href="read.html?id=' + AN.esc(slug) + '&ch=' + (ch - 1) + '" data-nav="' + (ch - 1) + '"><span class="lbl">&larr; Previous</span><span class="t">' + AN.esc(prev.title || ('Chapter ' + ch)) + '</span></a>'
@@ -428,8 +718,28 @@
         nav.querySelectorAll('[data-nav]').forEach(function(a){
           a.addEventListener('click', function(e){ e.preventDefault(); go(parseInt(a.getAttribute('data-nav'), 10)); });
         });
-        paintTheme(); paintFont(); paintLH(); paintFab();
+        paintTheme(); paintFont(); paintLH(); paintFab(); paintUrduFont();
         markRead(ch); saveProgress();
+        /* bookshelves: starting a novel auto-shelves it as Currently Reading */
+        if(window.ASTPlatform) window.ASTPlatform.autoShelfOnStart(slug);
+        /* finished banner on the last chapter */
+        (function(){
+          var P = window.ASTPlatform;
+          if(!P) return;
+          var old = shell.querySelector('.finished-banner');
+          if(old) old.remove();
+          if(ch === n.chapters.length - 1 && P.getShelf(slug) !== 'finished'){
+            var fb = document.createElement('div');
+            fb.className = 'finished-banner';
+            fb.innerHTML = '<span>Finished this book?</span>' +
+              '<button type="button" class="btn btn-sm" id="fbDone">Mark as finished</button>';
+            nav.parentNode.insertBefore(fb, nav);
+            fb.querySelector('#fbDone').addEventListener('click', function(){
+              P.setShelf(slug, 'finished');
+              fb.innerHTML = '<span class="fb-done">&#10003; Shelved as Finished — well read!</span>';
+            });
+          }
+        })();
       }
 
       /* reading progress bar + autosave scroll */
