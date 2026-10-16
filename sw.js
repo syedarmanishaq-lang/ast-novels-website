@@ -1,6 +1,23 @@
-/* AST Novels service worker — offline-first reading. v2: full app shell + platform JS. */
+/* AST Novels service worker — offline-first reading. v3: pack-4 features + novel SEO pages. */
 /* Deploy sync: ensures latest tree (novels/ SEO pages + downloads + goals) is the production build. */
-var CACHE = 'ast-novels-v2';
+var CACHE = 'ast-novels-v3';
+var NOVEL_PAGES = [
+  './novels/gift-of-the-magi.html',
+  './novels/the-tell-tale-heart.html',
+  './novels/chandni-raat.html',
+  './novels/pride-and-prejudice.html',
+  './novels/frankenstein.html',
+  './novels/dracula.html',
+  './novels/alice-in-wonderland.html',
+  './novels/sherlock-holmes.html',
+  './novels/moby-dick.html',
+  './novels/treasure-island.html',
+  './novels/toba-tek-singh.html',
+  './novels/khol-do.html',
+  './novels/thanda-gosht.html',
+  './novels/iqbal-selected-poetry.html',
+  './novels/ghalib-selected-ghazals.html'
+];
 var SHELL = [
   './',
   './index.html',
@@ -24,7 +41,7 @@ var SHELL = [
   './img/og.jpg',
   './img/icon-192.png',
   './img/icon-512.png'
-];
+].concat(NOVEL_PAGES);
 
 self.addEventListener('install', function(e){
   e.waitUntil(
