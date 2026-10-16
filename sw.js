@@ -1,6 +1,6 @@
-/* AST Novels service worker — offline-first reading. v3: pack-4 features + novel SEO pages. */
+/* AST Novels service worker — offline-first reading. v4: UI/UX polish pass. */
 /* Deploy sync: ensures latest tree (novels/ SEO pages + downloads + goals) is the production build. */
-var CACHE = 'ast-novels-v3';
+var CACHE = 'ast-novels-v4';
 var NOVEL_PAGES = [
   './novels/gift-of-the-magi.html',
   './novels/the-tell-tale-heart.html',
