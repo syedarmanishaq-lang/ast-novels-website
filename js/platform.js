@@ -168,6 +168,55 @@
   function setGoalMin(m){ m = parseInt(m, 10); if(m > 0 && m <= 480) store.set('goal_min', m); }
   function todaySeconds(){ var s = getStats(); return ((s.perDay || {})[todayKey()] || 0); }
 
+  /* ---------- bookshelves: want / reading / finished (localStorage) ---------- */
+  var SHELF_KEYS = ['want', 'reading', 'finished'];
+  var SHELF_LABELS = { want: 'Want to Read', reading: 'Currently Reading', finished: 'Finished' };
+  var SHELF_SHORT = { want: 'Want to Read', reading: 'Reading', finished: 'Finished' };
+  function getShelves(){
+    var s = store.get('shelves', null);
+    if(!s || typeof s !== 'object') s = {};
+    var out = {};
+    SHELF_KEYS.forEach(function(k){ out[k] = Array.isArray(s[k]) ? s[k].slice() : []; });
+    return out;
+  }
+  function getShelf(slug){
+    var s = getShelves();
+    for(var i = 0; i < SHELF_KEYS.length; i++){
+      if(s[SHELF_KEYS[i]].indexOf(slug) !== -1) return SHELF_KEYS[i];
+    }
+    return null;
+  }
+  function setShelf(slug, shelf){
+    var s = getShelves();
+    SHELF_KEYS.forEach(function(k){ s[k] = s[k].filter(function(x){ return x !== slug; }); });
+    if(shelf && SHELF_KEYS.indexOf(shelf) !== -1) s[shelf].push(slug);
+    store.set('shelves', s);
+    return getShelf(slug);
+  }
+  /* Auto-move: starting a novel puts it on Currently Reading (only if unshelved). */
+  function autoShelfOnStart(slug){
+    if(!getShelf(slug)) setShelf(slug, 'reading');
+  }
+
+  /* ---------- reading time estimates ---------- */
+  function readTimeMin(words, lang){
+    var wpm = (lang === 'ur') ? 150 : 200;
+    return Math.max(1, Math.ceil((parseInt(words, 10) || 0) / wpm));
+  }
+  function fmtReadTime(min){
+    min = Math.max(1, Math.round(min));
+    if(min < 60) return 'about ' + min + ' min read';
+    var h = Math.floor(min / 60), m = min % 60;
+    var hs = h + ' hr' + (h > 1 ? 's' : '');
+    return m ? ('about ' + hs + ' ' + m + ' min read') : ('about ' + hs + ' read');
+  }
+  function fmtShortTime(min){
+    min = Math.max(1, Math.round(min));
+    if(min < 60) return min + ' min';
+    var h = Math.floor(min / 60), m = min % 60;
+    return m ? (h + 'h ' + m + 'm') : (h + 'h');
+  }
+
   /* ---------- offline downloads (Cache API) ---------- */
   var DL_CACHE = 'ast-novels-downloads';
   function listDownloads(){ var d = store.get('downloads', []); return Array.isArray(d) ? d : []; }
@@ -212,6 +261,16 @@
     getGoalMin: getGoalMin,
     setGoalMin: setGoalMin,
     todaySeconds: todaySeconds,
+    shelfKeys: SHELF_KEYS,
+    shelfLabels: SHELF_LABELS,
+    shelfShort: SHELF_SHORT,
+    getShelves: getShelves,
+    getShelf: getShelf,
+    setShelf: setShelf,
+    autoShelfOnStart: autoShelfOnStart,
+    readTimeMin: readTimeMin,
+    fmtReadTime: fmtReadTime,
+    fmtShortTime: fmtShortTime,
     listDownloads: listDownloads,
     isDownloaded: isDownloaded,
     downloadNovel: downloadNovel,
