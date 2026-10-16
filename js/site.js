@@ -144,12 +144,18 @@
   }
   function cardHTML(n){
     var u = isUrdu(n);
-    var ratingLine = (window.ASTPlatform && window.ASTPlatform.ratingLineHTML(n)) || '';
-    var dlBadge = (window.ASTPlatform && window.ASTPlatform.isDownloaded(n.slug))
+    var P = window.ASTPlatform;
+    var ratingLine = (P && P.ratingLineHTML(n)) || '';
+    var dlBadge = (P && P.isDownloaded(n.slug))
       ? '<span class="book-dl" title="Downloaded for offline">Downloaded &#10003;</span>' : '';
+    var shelf = P ? P.getShelf(n.slug) : null;
+    var shelfBadge = shelf
+      ? '<span class="book-shelf" data-shelfbadge="' + AN.esc(n.slug) + '" title="' + AN.esc(P.shelfLabels[shelf]) + '">' + AN.esc(P.shelfShort[shelf]) + '</span>' : '';
+    var shelfBtn = P
+      ? '<button type="button" class="shelf-btn" data-shelfbtn="' + AN.esc(n.slug) + '" aria-label="Add to bookshelf" title="Add to bookshelf">+ Shelf</button>' : '';
     return '<a class="book-card reveal" href="novel.html?id=' + AN.esc(n.slug) + '">' +
       '<div class="book-cover"><img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy">' +
-      '<span class="book-lang">' + (u ? 'اردو' : 'EN') + '</span>' + dlBadge + '</div>' +
+      '<span class="book-lang">' + (u ? 'اردو' : 'EN') + '</span>' + dlBadge + shelfBadge + shelfBtn + '</div>' +
       '<div class="book-body">' +
         '<div class="book-title' + (u ? ' urdu' : '') + '">' + displayTitle(n) + '</div>' +
         '<div class="book-author">by ' + AN.esc(n.author) + '</div>' +
@@ -158,6 +164,70 @@
         '<span>' + AN.words(n.wordCount || 0) + ' words</span></div>' +
       '</div></a>';
   }
+
+  /* ---------- bookshelf quick-menu (shared floating menu for card buttons) ---------- */
+  var shelfMenuEl = null;
+  function closeShelfMenu(){ if(shelfMenuEl){ shelfMenuEl.remove(); shelfMenuEl = null; } }
+  function openShelfMenu(btn, slug){
+    var P = window.ASTPlatform;
+    if(!P) return;
+    closeShelfMenu();
+    var cur = P.getShelf(slug);
+    var m = document.createElement('div');
+    m.className = 'shelf-menu';
+    m.setAttribute('role', 'menu');
+    var html = '';
+    P.shelfKeys.forEach(function(k){
+      html += '<button type="button" data-sk="' + k + '" class="' + (cur === k ? 'on' : '') + '">' +
+        (cur === k ? '&#10003; ' : '') + AN.esc(P.shelfLabels[k]) + '</button>';
+    });
+    html += '<button type="button" data-sk="" class="rm">Remove from shelves</button>';
+    m.innerHTML = html;
+    document.body.appendChild(m);
+    var r = btn.getBoundingClientRect();
+    m.style.top = (r.bottom + window.scrollY + 6) + 'px';
+    var left = Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 200);
+    m.style.left = Math.max(window.scrollX + 8, left) + 'px';
+    shelfMenuEl = m;
+    m.addEventListener('click', function(e){
+      var b = e.target.closest ? e.target.closest('button[data-sk]') : null;
+      if(!b) return;
+      var v = b.getAttribute('data-sk') || null;
+      P.setShelf(slug, v);
+      closeShelfMenu();
+      refreshShelfBadges(slug);
+      showToast(v ? ('Added to ' + P.shelfLabels[v]) : 'Removed from shelves');
+      // refresh the My Shelves section if present
+      if(typeof renderShelvesSection === 'function') renderShelvesSection();
+    });
+    setTimeout(function(){
+      document.addEventListener('click', function away(e){
+        if(shelfMenuEl && !shelfMenuEl.contains(e.target)){ closeShelfMenu(); document.removeEventListener('click', away); }
+      });
+    }, 0);
+  }
+  function refreshShelfBadges(slug){
+    var P = window.ASTPlatform;
+    if(!P) return;
+    var shelf = P.getShelf(slug);
+    document.querySelectorAll('[data-shelfbadge="' + slug + '"]').forEach(function(el){
+      if(shelf){
+        el.style.display = '';
+        el.textContent = P.shelfShort[shelf];
+        el.setAttribute('title', P.shelfLabels[shelf]);
+      } else {
+        el.style.display = 'none';
+      }
+    });
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('[data-shelfbtn]') : null;
+    if(b){
+      e.preventDefault();
+      e.stopPropagation();
+      openShelfMenu(b, b.getAttribute('data-shelfbtn'));
+    }
+  });
   function featHTML(n){
     var u = isUrdu(n);
     var desc = AN.esc(n.description || '');
@@ -204,13 +274,18 @@
       ? 'Page ' + best.p.pdfPage
       : 'Chapter ' + (ch + 1) + (n.chapterCount ? ' of ' + n.chapterCount : '');
     var u = isUrdu(n);
+    var shelfNote = '';
+    if(window.ASTPlatform){
+      var sh = window.ASTPlatform.getShelf(n.slug);
+      if(sh) shelfNote = ' · ' + AN.esc(window.ASTPlatform.shelfLabels[sh]);
+    }
     box.innerHTML =
       '<div class="continue-card">' +
         '<a class="continue-cover" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '"><img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy"></a>' +
         '<div class="continue-body">' +
           '<div class="continue-label">Continue Reading</div>' +
           '<a class="continue-title' + (u ? ' urdu' : '') + '" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '">' + AN.esc(n.title) + '</a>' +
-          '<div class="continue-meta">by ' + AN.esc(n.author) + ' · ' + AN.esc(where) + '</div>' +
+          '<div class="continue-meta">by ' + AN.esc(n.author) + ' · ' + AN.esc(where) + shelfNote + '</div>' +
         '</div>' +
         '<a class="btn btn-sm" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '">Continue &rarr;</a>' +
       '</div>';
@@ -230,6 +305,34 @@
     scored.sort(function(a, b){ return b.s - a.s; });
     var top = scored.slice(0, 4).map(function(x){ return x.n; });
     grid.innerHTML = top.map(cardHTML).join('');
+    sec.style.display = '';
+  }
+
+  /* ---------- My Shelves (library section with tabs) ---------- */
+  var shelfTab = 'want';
+  function renderShelvesSection(catalog){
+    var sec = document.getElementById('myShelves'),
+        grid = document.getElementById('shelfGrid'),
+        empty = document.getElementById('shelfEmpty');
+    if(!sec || !grid || !window.ASTPlatform) return;
+    var P = window.ASTPlatform;
+    var shelves = P.getShelves();
+    var tabs = document.querySelectorAll('#shelfTabs .chip');
+    tabs.forEach(function(t){
+      var k = t.getAttribute('data-v');
+      var cnt = (shelves[k] || []).length;
+      var lbl = t.querySelector('.cnt');
+      if(lbl) lbl.textContent = cnt ? ' (' + cnt + ')' : '';
+      t.classList.toggle('on', k === shelfTab);
+    });
+    var bySlug = {};
+    (catalog || []).forEach(function(n){ bySlug[n.slug] = n; });
+    var list = (shelves[shelfTab] || []).map(function(s){ return bySlug[s]; }).filter(Boolean);
+    grid.innerHTML = list.length ? list.map(cardHTML).join('') : '';
+    if(empty){
+      empty.style.display = list.length ? 'none' : 'block';
+      empty.innerHTML = '<div class="big">This shelf is empty</div><p>Tap <b>+ Shelf</b> on any book cover to shelve it here.</p>';
+    }
     sec.style.display = '';
   }
 
@@ -349,6 +452,15 @@
         chips = gc.querySelectorAll('.chip');
         chips.forEach(function(c){ c.addEventListener('click', function(){ setChip(chips, c.getAttribute('data-v'), function(v){ genre = v; }); }); });
       }
+      // My Shelves tabs
+      var tabs = document.querySelectorAll('#shelfTabs .chip');
+      tabs.forEach(function(t){
+        t.addEventListener('click', function(){
+          shelfTab = t.getAttribute('data-v');
+          renderShelvesSection(all);
+        });
+      });
+      renderShelvesSection(novels);
       draw();
     }).catch(function(){
       grid.innerHTML = '<p class="count-line">Could not load the library. Check your connection and refresh.</p>';
@@ -535,13 +647,24 @@
         : chapters.map(function(c, i){
         var done = read.indexOf(i) !== -1;
         var wc = String(c.text || '').trim().split(/\s+/).filter(Boolean).length;
+        var P0 = window.ASTPlatform;
+        var chTime = P0 ? P0.fmtShortTime(P0.readTimeMin(wc, n.language)) : '';
         return '<a class="chapter-row' + (done ? ' done' : '') + '" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + i + '">' +
           '<span class="ch-num">' + (i + 1) + '</span>' +
           '<span class="ch-title' + (u ? ' urdu' : '') + '">' + AN.esc(c.title || ('Chapter ' + (i + 1))) + '</span>' +
-          '<span class="ch-words">' + AN.words(wc) + ' words</span>' +
+          '<span class="ch-words">' + AN.words(wc) + ' words' + (chTime ? ' · ' + chTime : '') + '</span>' +
           (done ? '<span class="ch-check" title="Read">&#10003;</span>' : '<span class="ch-go">&rarr;</span>') +
         '</a>';
       }).join('');
+
+      var P1 = window.ASTPlatform;
+      var totalWords = countWords(chapters);
+      var readTimeTag = (P1 && totalWords > 0)
+        ? '<span class="tag" title="Estimated reading time">' + P1.fmtReadTime(P1.readTimeMin(totalWords, n.language)).replace(/^about /, '~') + '</span>' : '';
+      var curShelf = P1 ? P1.getShelf(n.slug) : null;
+      var shelfChips = P1 ? P1.shelfKeys.map(function(k){
+        return '<button type="button" class="chip' + (curShelf === k ? ' on' : '') + '" data-shelfchip="' + k + '">' + AN.esc(P1.shelfLabels[k]) + '</button>';
+      }).join('') : '';
 
       root.innerHTML =
         '<div class="novel-hero">' +
@@ -555,9 +678,11 @@
             '<div class="tag-row">' +
               '<span class="tag">' + (hasSource && !total ? 'External file' : total + ' chapter' + (total === 1 ? '' : 's')) + '</span>' +
               (total ? '<span class="tag">' + AN.words(countWords(chapters)) + ' words</span>' : '') +
+              readTimeTag +
               (n.sample ? '<span class="tag accent">Sample story</span>' : '') +
             '</div>' +
             '<p class="novel-desc' + (u ? ' urdu' : '') + '">' + AN.esc(n.description || '') + '</p>' +
+            (shelfChips ? '<div class="shelf-row"><span class="rate-label">Bookshelf</span><div class="chip-row" id="shelfChips">' + shelfChips + '</div></div>' : '') +
             '<div class="novel-actions">' +
               '<a class="btn" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + startCh + '">' +
                 (prog ? 'Continue reading — Ch. ' + (startCh + 1) : 'Start reading') + ' &rarr;</a>' +
@@ -609,6 +734,23 @@
       /* Platform: interactive rating + local reviews. */
       renderRateWidget(n.slug, n);
       renderReviews(n.slug);
+
+      /* Bookshelf selector chips on the novel page. */
+      (function(){
+        var P = window.ASTPlatform;
+        var chips = document.querySelectorAll('#shelfChips [data-shelfchip]');
+        if(!P || !chips.length) return;
+        chips.forEach(function(c){
+          c.addEventListener('click', function(){
+            var v = c.getAttribute('data-shelfchip');
+            var cur = P.getShelf(n.slug);
+            P.setShelf(n.slug, cur === v ? null : v); // tap again to remove
+            var now = P.getShelf(n.slug);
+            chips.forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-shelfchip') === now); });
+            showToast(now ? ('Added to ' + P.shelfLabels[now]) : 'Removed from shelves');
+          });
+        });
+      })();
 
       /* Offline download: cache the novel's data + cover via the Cache API. */
       (function(){
