@@ -33,6 +33,14 @@
       s.days = s.days || [];
       var tk = todayKey();
       if(s.days.indexOf(tk) === -1){ s.days.push(tk); if(s.days.length > 400) s.days = s.days.slice(-400); }
+      s.perDay = s.perDay || {};
+      s.perDay[tk] = (s.perDay[tk] || 0) + 5;
+      // prune per-day history older than 400 days
+      var dk = Object.keys(s.perDay);
+      if(dk.length > 400){
+        dk.sort();
+        for(var i = 0; i < dk.length - 400; i++) delete s.perDay[dk[i]];
+      }
       store.set('stats', s);
     }, 5000);
   }
@@ -155,6 +163,36 @@
     return score;
   }
 
+  /* ---------- reading goals ---------- */
+  function getGoalMin(){ var v = parseInt(store.get('goal_min', 30), 10); return (v > 0 && v <= 480) ? v : 30; }
+  function setGoalMin(m){ m = parseInt(m, 10); if(m > 0 && m <= 480) store.set('goal_min', m); }
+  function todaySeconds(){ var s = getStats(); return ((s.perDay || {})[todayKey()] || 0); }
+
+  /* ---------- offline downloads (Cache API) ---------- */
+  var DL_CACHE = 'ast-novels-downloads';
+  function listDownloads(){ var d = store.get('downloads', []); return Array.isArray(d) ? d : []; }
+  function isDownloaded(slug){ return listDownloads().indexOf(slug) !== -1; }
+  function downloadNovel(slug, novel){
+    var urls = ['data/novels/' + slug + '.json'];
+    if(novel && novel.cover) urls.push(novel.cover);
+    if(!('caches' in window)) return Promise.reject(new Error('no-cache-api'));
+    return caches.open(DL_CACHE).then(function(c){ return c.addAll(urls); }).then(function(){
+      var d = listDownloads();
+      if(d.indexOf(slug) === -1){ d.push(slug); store.set('downloads', d); }
+      return true;
+    });
+  }
+  function removeDownload(slug){
+    var done = function(){
+      var d = listDownloads().filter(function(x){ return x !== slug; });
+      store.set('downloads', d);
+    };
+    if(!('caches' in window)){ done(); return Promise.resolve(); }
+    return caches.open(DL_CACHE).then(function(c){
+      return c.delete('data/novels/' + slug + '.json');
+    }).then(done, done);
+  }
+
   window.ASTPlatform = {
     trackReading: trackReading,
     getStats: getStats,
@@ -171,6 +209,13 @@
     localViews: localViews,
     totalViews: totalViews,
     trendingScore: trendingScore,
+    getGoalMin: getGoalMin,
+    setGoalMin: setGoalMin,
+    todaySeconds: todaySeconds,
+    listDownloads: listDownloads,
+    isDownloaded: isDownloaded,
+    downloadNovel: downloadNovel,
+    removeDownload: removeDownload,
     esc: function(s){ return AN ? AN.esc(s) : String(s); }
   };
 })();
