@@ -68,70 +68,127 @@
     });
   }
 
-  /* ---------- PWA install prompt ---------- */
+  /* ---------- PWA install modal ---------- */
   var deferredPrompt = null;
+  var LS_OFFERED = 'astnovels_install_offered_at';
+  var OFFER_COOLDOWN = 7 * 24 * 3600 * 1000; // re-offer after 7 days, never forever-blocked
+
   window.addEventListener('beforeinstallprompt', function(e){
     e.preventDefault();
     deferredPrompt = e;
-    showInstallBanner();
+    maybeAutoOffer();
   });
-  window.addEventListener('appinstalled', function(){ hideInstallBanner(); });
+  window.addEventListener('appinstalled', function(){
+    deferredPrompt = null;
+    closeInstallModal();
+    try{ localStorage.setItem('astnovels_installed', '1'); }catch(e){}
+  });
 
-  function showInstallBanner(){
-    if(document.querySelector('.install-banner')) return;
-    if(localStorage.getItem('astnovels_install_dismissed')) return;
-    // don't show inside the reader — it has its own chrome
-    if(document.body.classList.contains('reader-page')) return;
-    var b = document.createElement('div');
-    b.className = 'install-banner';
-    b.setAttribute('role', 'dialog');
-    b.setAttribute('aria-label', 'Install AST Novels app');
-    b.innerHTML =
-      '<div class="ib-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#FFF4DE" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></div>' +
-      '<div class="ib-text"><b>Get the AST Novels app</b><span>Install for offline reading &amp; quick access</span></div>' +
-      '<button class="ib-install">Install</button>' +
-      '<button class="ib-close" aria-label="Dismiss">&times;</button>';
-    document.body.appendChild(b);
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ b.classList.add('show'); }); });
-    b.querySelector('.ib-install').addEventListener('click', function(){
-      if(deferredPrompt){
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then(function(){ deferredPrompt = null; hideInstallBanner(); });
-      }
-    });
-    b.querySelector('.ib-close').addEventListener('click', function(){
-      localStorage.setItem('astnovels_install_dismissed', '1');
-      hideInstallBanner();
-    });
-    // iOS hint: no beforeinstallprompt on iOS — show manual hint after 20s if standalone never happens
-    setTimeout(function(){
-      if(!window.matchMedia('(display-mode: standalone)').matches && !deferredPrompt && !document.querySelector('.install-banner.show')){
-        // keep quiet on iOS; the About page explains Add to Home Screen
-      }
-    }, 20000);
+  function isStandalone(){
+    try{
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }catch(e){ return false; }
   }
-  function hideInstallBanner(){
-    var b = document.querySelector('.install-banner');
-    if(b){ b.classList.remove('show'); setTimeout(function(){ b.remove(); }, 450); }
+  function alreadyInstalled(){
+    try{ return localStorage.getItem('astnovels_installed') === '1'; }catch(e){ return false; }
+  }
+  function offerDue(){
+    if(isStandalone() || alreadyInstalled()) return false;
+    if(document.body.classList.contains('reader-page')) return false;
+    try{
+      var last = parseInt(localStorage.getItem(LS_OFFERED) || '0', 10);
+      return (Date.now() - last) > OFFER_COOLDOWN;
+    }catch(e){ return true; }
+  }
+  function markOffered(){
+    try{ localStorage.setItem(LS_OFFERED, String(Date.now())); }catch(e){}
+  }
+  function maybeAutoOffer(){
+    if(!offerDue()) return;
+    // small delay so the page settles first
+    setTimeout(function(){ if(offerDue()) openInstallModal(false); }, 2500);
   }
 
-  /* ---------- footer "Install app" link: always available, even if the banner was dismissed ---------- */
+  function openInstallModal(fromLink){
+    if(document.querySelector('.install-modal')) return;
+    if(isStandalone() || alreadyInstalled()) return;
+    markOffered();
+    var hasPrompt = !!deferredPrompt;
+    var m = document.createElement('div');
+    m.className = 'install-modal';
+    m.setAttribute('role', 'dialog');
+    m.setAttribute('aria-modal', 'true');
+    m.setAttribute('aria-label', 'Install AST Novels app');
+    var stepsHTML =
+      '<ol class="im-steps">' +
+        '<li><b>Android · Chrome:</b> tap the <b>&#8942;</b> menu, then <b>Install app</b> (or <b>Add to Home screen</b>).</li>' +
+        '<li><b>iPhone · Safari:</b> tap <b>Share</b>, then <b>Add to Home Screen</b>.</li>' +
+        '<li><b>Desktop · Chrome/Edge:</b> click the install icon in the address bar.</li>' +
+      '</ol>';
+    m.innerHTML =
+      '<div class="im-backdrop"></div>' +
+      '<div class="im-card">' +
+        '<button class="im-close" aria-label="Close">&times;</button>' +
+        '<div class="im-icon"><img src="/img/icon-192.png" alt="AST Novels app icon" width="76" height="76"></div>' +
+        '<h3 class="serif">Get the AST Novels app</h3>' +
+        '<p class="im-sub">Your library, on your home screen.</p>' +
+        '<ul class="im-bullets">' +
+          '<li><span class="im-tick">&#10003;</span> Read offline — anywhere, no internet needed</li>' +
+          '<li><span class="im-tick">&#10003;</span> Listen to novels with read-aloud</li>' +
+          '<li><span class="im-tick">&#10003;</span> Free forever — no account, no signup</li>' +
+        '</ul>' +
+        (hasPrompt
+          ? '<button class="btn im-install" id="imInstallBtn">Install app</button>'
+          : '<div class="im-manual"><p class="im-manual-title">Install in 10 seconds:</p>' + stepsHTML + '</div>') +
+        '<button class="im-later">Maybe later</button>' +
+      '</div>';
+    document.body.appendChild(m);
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ m.classList.add('show'); }); });
+    function close(){ closeInstallModal(); }
+    m.querySelector('.im-backdrop').addEventListener('click', close);
+    m.querySelector('.im-close').addEventListener('click', close);
+    m.querySelector('.im-later').addEventListener('click', close);
+    var ib = m.querySelector('#imInstallBtn');
+    if(ib){
+      ib.addEventListener('click', function(){
+        if(deferredPrompt){
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(function(choice){
+            if(choice && choice.outcome === 'accepted'){
+              try{ localStorage.setItem('astnovels_installed', '1'); }catch(e){}
+            }
+            deferredPrompt = null;
+            closeInstallModal();
+          }).catch(function(){ closeInstallModal(); });
+        } else {
+          closeInstallModal();
+        }
+      });
+    }
+    document.addEventListener('keydown', function esc(e){
+      if(e.key === 'Escape'){ closeInstallModal(); document.removeEventListener('keydown', esc); }
+    });
+  }
+  function closeInstallModal(){
+    var m = document.querySelector('.install-modal');
+    if(m){
+      m.classList.remove('show');
+      setTimeout(function(){ m.remove(); }, 350);
+    }
+    document.body.style.overflow = '';
+  }
+  // expose for footer link + any future buttons
+  window.ASTNovelsInstall = { open: function(){ openInstallModal(true); } };
+
+  /* ---------- footer "Install app" link: always available, even if auto-prompt never fires ---------- */
   var installLink = document.getElementById('installAppLink');
   if(installLink){
     // hide the link when already running as the installed app
-    try{
-      if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone){ installLink.style.display = 'none'; }
-    }catch(e){}
+    if(isStandalone() || alreadyInstalled()){ installLink.style.display = 'none'; }
     installLink.addEventListener('click', function(e){
       e.preventDefault();
-      if(deferredPrompt){
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then(function(){ deferredPrompt = null; hideInstallBanner(); });
-        return;
-      }
-      // No auto-prompt available: show manual steps.
-      var msg = 'To install AST Novels:\n\n• Chrome (Android): tap ⋮ menu → "Install app" or "Add to Home screen"\n• iPhone (Safari): tap Share → "Add to Home Screen"';
-      alert(msg);
+      if(window.ASTNovelsInstall) window.ASTNovelsInstall.open();
     });
   }
 
