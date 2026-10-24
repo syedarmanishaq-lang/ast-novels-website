@@ -293,17 +293,27 @@
   }
 
   /* ---------- Trending (homepage) ----------
-     Top novels by readers' local ratings + read counts. Hidden when no signal yet. */
+     Top novels by readers' local ratings + read counts. Hidden when no signal yet.
+     Deduped: never repeats a book already on the "reading table" (featured) shelf;
+     gaps are filled with other non-featured books from the catalog. */
   function renderTrending(novels){
     var sec = document.getElementById('trendSection'),
         grid = document.getElementById('trendGrid');
     if(!sec || !grid || !window.ASTPlatform) return;
+    var featSlugs = {};
+    novels.forEach(function(n){ if(n.featured) featSlugs[n.slug] = true; });
     var scored = novels.map(function(n){
       return { n: n, s: window.ASTPlatform.trendingScore(n) };
-    }).filter(function(x){ return x.s > 0; });
+    }).filter(function(x){ return x.s > 0 && !featSlugs[x.n.slug]; });
     if(scored.length < 2) return; // not enough reader signal yet
     scored.sort(function(a, b){ return b.s - a.s; });
     var top = scored.slice(0, 4).map(function(x){ return x.n; });
+    var topSlugs = {};
+    top.forEach(function(n){ topSlugs[n.slug] = true; });
+    if(top.length < 4){
+      var rest = novels.filter(function(n){ return !featSlugs[n.slug] && !topSlugs[n.slug]; });
+      top = top.concat(rest.slice(0, 4 - top.length));
+    }
     grid.innerHTML = top.map(cardHTML).join('');
     sec.style.display = '';
   }
