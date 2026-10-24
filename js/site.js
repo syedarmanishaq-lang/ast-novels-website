@@ -72,7 +72,7 @@
     return sbCatalog().catch(function(){ return localCatalog(); });
   }
   function localCatalog(){
-    return fetchJSON('data/novels/index.json').then(function(list){
+    return fetchJSON('/data/novels/index.json').then(function(list){
       var ov = AN.listOverrides();
       var trashed = AN.listTrash();
       var out = [];
@@ -88,6 +88,7 @@
         var isNew = !list.some(function(n){ return n.slug === k; });
         if(isNew && !trashed[k] && ov[k].status !== 'draft') out.push(stripChapters(ov[k]));
       });
+      out.forEach(function(n){ if(n.cover && n.cover.indexOf('/') !== 0 && n.cover.indexOf('http') !== 0) n.cover = '/' + n.cover; });
       return out;
     });
   }
@@ -122,7 +123,7 @@
     return localNovel(slug);
   }
   function localNovel(slug){
-    return fetchJSON('data/novels/' + slug + '.json');
+    return fetchJSON('/data/novels/' + slug + '.json').then(function(n){ if(n && n.cover && n.cover.indexOf('/') !== 0 && n.cover.indexOf('http') !== 0) n.cover = '/' + n.cover; return n; });
   }
 
   /* View counter: server-side via safe RPC + local fallback. */
@@ -153,7 +154,7 @@
       ? '<span class="book-shelf" data-shelfbadge="' + AN.esc(n.slug) + '" title="' + AN.esc(P.shelfLabels[shelf]) + '">' + AN.esc(P.shelfShort[shelf]) + '</span>' : '';
     var shelfBtn = P
       ? '<button type="button" class="shelf-btn" data-shelfbtn="' + AN.esc(n.slug) + '" aria-label="Add to bookshelf" title="Add to bookshelf">+ Shelf</button>' : '';
-    return '<a class="book-card reveal" href="novel.html?id=' + AN.esc(n.slug) + '">' +
+    return '<a class="book-card reveal" href="/novel/' + AN.esc(n.slug) + '">' +
       '<div class="book-cover"><img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy">' +
       '<span class="book-lang">' + (u ? 'اردو' : 'EN') + '</span>' + dlBadge + shelfBadge + shelfBtn + '</div>' +
       '<div class="book-body">' +
@@ -231,7 +232,7 @@
   function featHTML(n){
     var u = isUrdu(n);
     var desc = AN.esc(n.description || '');
-    return '<a class="feat-card reveal" href="novel.html?id=' + AN.esc(n.slug) + '">' +
+    return '<a class="feat-card reveal" href="/novel/' + AN.esc(n.slug) + '">' +
       '<img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy">' +
       '<div><h3 class="' + (u ? 'urdu' : '') + '">' + displayTitle(n) + '</h3>' +
       '<div class="by">by ' + AN.esc(n.author) + ' · ' + AN.esc(n.genre) + ' · ' + AN.words(n.wordCount || 0) + ' words</div>' +
@@ -281,13 +282,13 @@
     }
     box.innerHTML =
       '<div class="continue-card">' +
-        '<a class="continue-cover" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '"><img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy"></a>' +
+        '<a class="continue-cover" href="/read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '"><img src="' + AN.esc(n.cover) + '" alt="Cover of ' + AN.esc(u && n.title_en ? n.title_en : n.title) + '" loading="lazy"></a>' +
         '<div class="continue-body">' +
           '<div class="continue-label">Continue Reading</div>' +
-          '<a class="continue-title' + (u ? ' urdu' : '') + '" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '">' + AN.esc(n.title) + '</a>' +
+          '<a class="continue-title' + (u ? ' urdu' : '') + '" href="/read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '">' + AN.esc(n.title) + '</a>' +
           '<div class="continue-meta">by ' + AN.esc(n.author) + ' · ' + AN.esc(where) + shelfNote + '</div>' +
         '</div>' +
-        '<a class="btn btn-sm" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '">Continue &rarr;</a>' +
+        '<a class="btn btn-sm" href="/read.html?id=' + AN.esc(n.slug) + '&ch=' + ch + '">Continue &rarr;</a>' +
       '</div>';
     sec.style.display = '';
   }
@@ -560,8 +561,9 @@
   function renderNovel(){
     var root = document.getElementById('novelRoot');
     if(!root) return;
-    var slug = new URLSearchParams(location.search).get('id');
-    if(!slug){ root.innerHTML = '<div class="empty-state"><div class="big">Novel not found</div><p>The link may be broken.</p><p style="margin-top:18px"><a class="btn btn-ghost" href="library.html">Browse library</a></p></div>'; return; }
+    var _pm = location.pathname.match(/^\/novel\/([^\/]+)\/?$/);
+    var slug = (_pm && _pm[1]) || new URLSearchParams(location.search).get('id');
+    if(!slug){ root.innerHTML = '<div class="empty-state"><div class="big">Novel not found</div><p>The link may be broken.</p><p style="margin-top:18px"><a class="btn btn-ghost" href="/library.html">Browse library</a></p></div>'; return; }
     loadNovel(slug).then(function(n){
       countView(slug, n._id);
       var u = isUrdu(n);
@@ -573,7 +575,7 @@
       var startCh = prog ? prog.ch : 0;
 
       /* SEO: unique title + description + canonical/OG derived from this novel */
-      var pageUrl = 'https://ast-novels.vercel.app/novel.html?id=' + n.slug;
+      var pageUrl = 'https://ast-novels.vercel.app/novel/' + n.slug;
       var seoDesc = 'Read ' + n.title + ' by ' + n.author + ' online free at AST Novels. ' + (n.description || '').slice(0, 120);
       document.title = n.title + ' by ' + n.author + ' — Read Free | AST Novels';
       var md = document.querySelector('meta[name="description"]');
@@ -649,7 +651,7 @@
       })();
 
       var chRows = hasSource && !total
-        ? '<a class="chapter-row" href="read.html?id=' + AN.esc(n.slug) + '&ch=0">' +
+        ? '<a class="chapter-row" href="/read.html?id=' + AN.esc(n.slug) + '&ch=0">' +
           '<span class="ch-num">▶</span>' +
           '<span class="ch-title">Read now</span>' +
           '<span class="ch-words">External file</span>' +
@@ -659,7 +661,7 @@
         var wc = String(c.text || '').trim().split(/\s+/).filter(Boolean).length;
         var P0 = window.ASTPlatform;
         var chTime = P0 ? P0.fmtShortTime(P0.readTimeMin(wc, n.language)) : '';
-        return '<a class="chapter-row' + (done ? ' done' : '') + '" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + i + '">' +
+        return '<a class="chapter-row' + (done ? ' done' : '') + '" href="/read.html?id=' + AN.esc(n.slug) + '&ch=' + i + '">' +
           '<span class="ch-num">' + (i + 1) + '</span>' +
           '<span class="ch-title' + (u ? ' urdu' : '') + '">' + AN.esc(c.title || ('Chapter ' + (i + 1))) + '</span>' +
           '<span class="ch-words">' + AN.words(wc) + ' words' + (chTime ? ' · ' + chTime : '') + '</span>' +
@@ -694,9 +696,9 @@
             '<p class="novel-desc' + (u ? ' urdu' : '') + '">' + AN.esc(n.description || '') + '</p>' +
             (shelfChips ? '<div class="shelf-row"><span class="rate-label">Bookshelf</span><div class="chip-row" id="shelfChips">' + shelfChips + '</div></div>' : '') +
             '<div class="novel-actions">' +
-              '<a class="btn" href="read.html?id=' + AN.esc(n.slug) + '&ch=' + startCh + '">' +
+              '<a class="btn" href="/read.html?id=' + AN.esc(n.slug) + '&ch=' + startCh + '">' +
                 (prog ? 'Continue reading — Ch. ' + (startCh + 1) : 'Start reading') + ' &rarr;</a>' +
-              '<a class="btn btn-ghost" href="library.html">All novels</a>' +
+              '<a class="btn btn-ghost" href="/library.html">All novels</a>' +
               '<button class="btn btn-ghost" id="dlBtn" type="button">Download</button>' +
               '<button class="btn btn-ghost" id="shareBtn" type="button">Share</button>' +
               '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' +
@@ -817,7 +819,7 @@
         });
       }
     }).catch(function(){
-      root.innerHTML = '<div class="empty-state"><div class="big">Could not load this novel</div><p>Check your connection and try again.</p><p style="margin-top:18px"><a class="btn btn-ghost" href="library.html">Browse library</a></p></div>';
+      root.innerHTML = '<div class="empty-state"><div class="big">Could not load this novel</div><p>Check your connection and try again.</p><p style="margin-top:18px"><a class="btn btn-ghost" href="/library.html">Browse library</a></p></div>';
     });
   }
 
