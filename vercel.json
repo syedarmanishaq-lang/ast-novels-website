@@ -6,6 +6,18 @@
         {
           "type": "query",
           "key": "id",
+          "value": "^testprobe$"
+        }
+      ],
+      "destination": "/library.html",
+      "permanent": false
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
           "value": "^gift-of-the-magi$"
         }
       ],
