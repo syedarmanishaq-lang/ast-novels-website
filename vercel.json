@@ -6,7 +6,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^testprobe$"
+          "value": "testprobe"
         }
       ],
       "destination": "/library.html",
@@ -18,7 +18,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^gift-of-the-magi$"
+          "value": "gift-of-the-magi"
         }
       ],
       "destination": "/novel/gift-of-the-magi",
@@ -30,7 +30,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^the-tell-tale-heart$"
+          "value": "the-tell-tale-heart"
         }
       ],
       "destination": "/novel/the-tell-tale-heart",
@@ -42,7 +42,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^chandni-raat$"
+          "value": "chandni-raat"
         }
       ],
       "destination": "/novel/chandni-raat",
@@ -54,7 +54,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^pride-and-prejudice$"
+          "value": "pride-and-prejudice"
         }
       ],
       "destination": "/novel/pride-and-prejudice",
@@ -66,7 +66,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^frankenstein$"
+          "value": "frankenstein"
         }
       ],
       "destination": "/novel/frankenstein",
@@ -78,7 +78,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^dracula$"
+          "value": "dracula"
         }
       ],
       "destination": "/novel/dracula",
@@ -90,7 +90,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^alice-in-wonderland$"
+          "value": "alice-in-wonderland"
         }
       ],
       "destination": "/novel/alice-in-wonderland",
@@ -102,7 +102,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^sherlock-holmes$"
+          "value": "sherlock-holmes"
         }
       ],
       "destination": "/novel/sherlock-holmes",
@@ -114,7 +114,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^moby-dick$"
+          "value": "moby-dick"
         }
       ],
       "destination": "/novel/moby-dick",
@@ -126,7 +126,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^treasure-island$"
+          "value": "treasure-island"
         }
       ],
       "destination": "/novel/treasure-island",
@@ -138,7 +138,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^toba-tek-singh$"
+          "value": "toba-tek-singh"
         }
       ],
       "destination": "/novel/toba-tek-singh",
@@ -150,7 +150,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^khol-do$"
+          "value": "khol-do"
         }
       ],
       "destination": "/novel/khol-do",
@@ -162,7 +162,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^thanda-gosht$"
+          "value": "thanda-gosht"
         }
       ],
       "destination": "/novel/thanda-gosht",
@@ -174,7 +174,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^iqbal-selected-poetry$"
+          "value": "iqbal-selected-poetry"
         }
       ],
       "destination": "/novel/iqbal-selected-poetry",
@@ -186,7 +186,7 @@
         {
           "type": "query",
           "key": "id",
-          "value": "^ghalib-selected-ghazals$"
+          "value": "ghalib-selected-ghazals"
         }
       ],
       "destination": "/novel/ghalib-selected-ghazals",
