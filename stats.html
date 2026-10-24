@@ -193,7 +193,7 @@
       if(entries.length){
         tb.innerHTML = entries.slice(0, 8).map(function(e){
           var u = e.n.language === 'ur';
-          return '<a class="chapter-row" href="novel.html?id=' + AN.esc(e.slug) + '">' +
+          return '<a class="chapter-row" href="/novel/' + AN.esc(e.slug) + '">' +
             '<span class="ch-num">◷</span>' +
             '<span class="ch-title' + (u ? ' urdu' : '') + '">' + AN.esc(e.n.title) + '</span>' +
             '<span class="ch-words">' + fmtTime(e.sec) + '</span>' +
@@ -210,7 +210,7 @@
       if(mine.length){
         mrEl.innerHTML = mine.map(function(e){
           var u = e.n.language === 'ur';
-          return '<a class="chapter-row" href="novel.html?id=' + AN.esc(e.slug) + '">' +
+          return '<a class="chapter-row" href="/novel/' + AN.esc(e.slug) + '">' +
             '<span class="ch-num">' + P.starsText(e.v) + '</span>' +
             '<span class="ch-title' + (u ? ' urdu' : '') + '">' + AN.esc(e.n.title) + '</span>' +
             '<span class="ch-words">by ' + AN.esc(e.n.author) + '</span>' +
