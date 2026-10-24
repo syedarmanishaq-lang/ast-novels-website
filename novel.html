@@ -63,7 +63,6 @@
       <a href="library.html" class="btn btn-sm" style="padding:9px 20px">Start Reading</a>
     </div>
     <button class="hamburger" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div id="google_translate_element" title="Translate this page"></div>
   </div>
   <div class="mobile-menu">
     <a href="index.html">Home</a>
@@ -78,6 +77,12 @@
   <div class="wrap" id="novelRoot">
     <div class="empty-state"><div class="big">Opening the book…</div></div>
   </div>
+  <script>
+  /* Early book title: show the real book name + page title immediately from the
+     ?id= param, before the reader data fetch finishes. Titles/author names are
+     copied from the existing catalog (data/novels/index.json) — nothing new. */
+  (function(){try{var B={'gift-of-the-magi':'The Gift of the Magi — O. Henry','the-tell-tale-heart':'The Tell-Tale Heart — Edgar Allan Poe','chandni-raat':'چاندنی رات — AST Novels','pride-and-prejudice':'Pride and Prejudice — Jane Austen','frankenstein':'Frankenstein — Mary Shelley','dracula':'Dracula — Bram Stoker','alice-in-wonderland':"Alice's Adventures in Wonderland — Lewis Carroll",'sherlock-holmes':'The Adventures of Sherlock Holmes — Arthur Conan Doyle','moby-dick':'Moby Dick — Herman Melville','treasure-island':'Treasure Island — Robert Louis Stevenson','toba-tek-singh':'ٹوبہ ٹیک سنگھ — سعادت حسن منٹو','khol-do':'کھول دو — سعادت حسن منٹو','thanda-gosht':'ٹھنڈا گوشت — سعادت حسن منٹو','iqbal-selected-poetry':'منتخب کلامِ اقبال — علامہ محمد اقبال','ghalib-selected-ghazals':'منتخب غزلیاتِ غالب — مرزا اسد اللہ خان غالب'};var id=new URLSearchParams(window.location.search).get('id');var b=id&&B[id];if(b){document.title='Read '+b+' Online Free | AST Novels';var e=document.querySelector('#novelRoot .empty-state .big');if(e)e.textContent='Opening '+b+'…';}}catch(err){}})();
+  </script>
   <noscript>
     <div class="wrap">
       <h1>AST Novels Library</h1>
@@ -137,9 +142,5 @@
 <script src="js/sb.js"></script>
 <script src="js/platform.js"></script>
 <script src="js/site.js"></script>
-<script>
-function googleTranslateElementInit(){new google.translate.TranslateElement({pageLanguage:'en',layout:google.translate.TranslateElement.InlineLayout.SIMPLE,autoDisplay:false},'google_translate_element');}
-</script>
-<script defer src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 </body>
 </html>
