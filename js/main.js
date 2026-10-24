@@ -56,7 +56,7 @@
     /* ---------- active nav link ---------- */
     var path = (location.pathname.split('/').pop() || 'index.html').split('?')[0];
     document.querySelectorAll('.nav-links a, .mobile-menu a').forEach(function(a){
-      var href = (a.getAttribute('href') || '').split('?')[0];
+      var href = (a.getAttribute('href') || '').split('?')[0].replace(/^\//, '');
       if(href === path || (path === '' && href === 'index.html')) a.classList.add('active');
     });
   });
@@ -64,7 +64,7 @@
   /* ---------- service worker ---------- */
   if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
     window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(){ /* offline support optional */ });
+      navigator.serviceWorker.register('/sw.js').catch(function(){ /* offline support optional */ });
     });
   }
 
