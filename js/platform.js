@@ -222,7 +222,7 @@
   function listDownloads(){ var d = store.get('downloads', []); return Array.isArray(d) ? d : []; }
   function isDownloaded(slug){ return listDownloads().indexOf(slug) !== -1; }
   function downloadNovel(slug, novel){
-    var urls = ['data/novels/' + slug + '.json'];
+    var urls = ['/data/novels/' + slug + '.json'];
     if(novel && novel.cover) urls.push(novel.cover);
     if(!('caches' in window)) return Promise.reject(new Error('no-cache-api'));
     return caches.open(DL_CACHE).then(function(c){ return c.addAll(urls); }).then(function(){
@@ -238,7 +238,7 @@
     };
     if(!('caches' in window)){ done(); return Promise.resolve(); }
     return caches.open(DL_CACHE).then(function(c){
-      return c.delete('data/novels/' + slug + '.json');
+      return c.delete('/data/novels/' + slug + '.json');
     }).then(done, done);
   }
 
