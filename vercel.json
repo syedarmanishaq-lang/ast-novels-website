@@ -1,0 +1,195 @@
+{
+  "redirects": [
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^gift-of-the-magi$"
+        }
+      ],
+      "destination": "/novel/gift-of-the-magi",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^the-tell-tale-heart$"
+        }
+      ],
+      "destination": "/novel/the-tell-tale-heart",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^chandni-raat$"
+        }
+      ],
+      "destination": "/novel/chandni-raat",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^pride-and-prejudice$"
+        }
+      ],
+      "destination": "/novel/pride-and-prejudice",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^frankenstein$"
+        }
+      ],
+      "destination": "/novel/frankenstein",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^dracula$"
+        }
+      ],
+      "destination": "/novel/dracula",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^alice-in-wonderland$"
+        }
+      ],
+      "destination": "/novel/alice-in-wonderland",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^sherlock-holmes$"
+        }
+      ],
+      "destination": "/novel/sherlock-holmes",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^moby-dick$"
+        }
+      ],
+      "destination": "/novel/moby-dick",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^treasure-island$"
+        }
+      ],
+      "destination": "/novel/treasure-island",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^toba-tek-singh$"
+        }
+      ],
+      "destination": "/novel/toba-tek-singh",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^khol-do$"
+        }
+      ],
+      "destination": "/novel/khol-do",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^thanda-gosht$"
+        }
+      ],
+      "destination": "/novel/thanda-gosht",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^iqbal-selected-poetry$"
+        }
+      ],
+      "destination": "/novel/iqbal-selected-poetry",
+      "permanent": true
+    },
+    {
+      "source": "/novel.html",
+      "has": [
+        {
+          "type": "query",
+          "key": "id",
+          "value": "^ghalib-selected-ghazals$"
+        }
+      ],
+      "destination": "/novel/ghalib-selected-ghazals",
+      "permanent": true
+    },
+    {
+      "source": "/novel",
+      "destination": "/library.html",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/novel/:slug",
+      "destination": "/novel.html"
+    }
+  ]
+}
