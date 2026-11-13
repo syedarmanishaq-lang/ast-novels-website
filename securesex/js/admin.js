@@ -1,5 +1,5 @@
 /* ============================================================================
-   AST NOVELS — Admin panel (Supabase edition)
+   AST LIBRARY — Admin panel (Supabase edition)
    Login: Supabase Auth (email + password). Everything saves LIVE to the
    database — no export/push needed. Published novels appear on the site
    instantly.
