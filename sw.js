@@ -1,22 +1,8 @@
-/* AST Novels service worker — offline-first reading. v5: clean-URL routing (cache refresh). */
+/* AST Library service worker — offline-first reading. v1: clean-URL routing (cache refresh). */
 /* Deploy sync: ensures latest tree (novels/ SEO pages + downloads + goals) is the production build. */
-var CACHE = 'ast-novels-v5';
+var CACHE = 'ast-library-v1';
 var NOVEL_PAGES = [
-  './novels/gift-of-the-magi.html',
-  './novels/the-tell-tale-heart.html',
-  './novels/chandni-raat.html',
-  './novels/pride-and-prejudice.html',
-  './novels/frankenstein.html',
-  './novels/dracula.html',
-  './novels/alice-in-wonderland.html',
-  './novels/sherlock-holmes.html',
-  './novels/moby-dick.html',
-  './novels/treasure-island.html',
-  './novels/toba-tek-singh.html',
-  './novels/khol-do.html',
-  './novels/thanda-gosht.html',
-  './novels/iqbal-selected-poetry.html',
-  './novels/ghalib-selected-ghazals.html'
+  './novels/chandni-raat.html'
 ];
 var SHELL = [
   './',
