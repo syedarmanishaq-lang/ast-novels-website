@@ -1,7 +1,7 @@
-/* AST Novels — catalog loading + home/library/novel rendering. */
+/* AST Library — catalog loading + home/library/novel rendering. */
 (function(){
   'use strict';
-  var AN = window.ASTNovels;
+  var AN = window.ASTLibrary;
 
   function fetchJSON(url){
     return fetch(url, {cache:'no-cache'}).then(function(r){
@@ -576,8 +576,8 @@
 
       /* SEO: unique title + description + canonical/OG derived from this novel */
       var pageUrl = 'https://ast-novels.vercel.app/novel/' + n.slug;
-      var seoDesc = 'Read ' + n.title + ' by ' + n.author + ' online free at AST Novels. ' + (n.description || '').slice(0, 120);
-      document.title = n.title + ' by ' + n.author + ' — Read Free | AST Novels';
+      var seoDesc = 'Read ' + n.title + ' by ' + n.author + ' online free at AST Library. ' + (n.description || '').slice(0, 120);
+      document.title = n.title + ' by ' + n.author + ' — Read Free | AST Library';
       var md = document.querySelector('meta[name="description"]');
       if(md) md.setAttribute('content', seoDesc);
       var can = document.querySelector('link[rel="canonical"]');
@@ -586,12 +586,13 @@
         var el = document.querySelector(sel);
         if(el) el.setAttribute(attr, val);
       }
-      setMeta('meta[property="og:title"]', 'content', n.title + ' by ' + n.author + ' — AST Novels');
+      setMeta('meta[property="og:title"]', 'content', n.title + ' by ' + n.author + ' — AST Library');
       setMeta('meta[property="og:description"]', 'content', seoDesc);
       setMeta('meta[property="og:url"]', 'content', pageUrl);
       setMeta('meta[property="og:image"]', 'content', 'https://ast-novels.vercel.app/' + n.cover);
-      setMeta('meta[name="twitter:title"]', 'content', n.title + ' by ' + n.author + ' — AST Novels');
+      setMeta('meta[name="twitter:title"]', 'content', n.title + ' by ' + n.author + ' — AST Library');
       setMeta('meta[name="twitter:description"]', 'content', seoDesc);
+      setMeta('meta[name="keywords"]', 'content', n.title + ', ' + n.author + ', ' + (n.language === 'ur' ? 'urdu novels, read urdu novels, urdu novels free' : 'english novels, read english novels, free novels') + ', novel reader, pakistani novels, AST Library');
       var ldObj = {
         '@context':'https://schema.org', '@type':'Book',
         name:n.title, author:{'@type':'Person', name:n.author},
@@ -631,15 +632,15 @@
       /* FAQPage per novel — original Q&A for richer results (beats thin competitor pages) */
       (function(){
         var faqQs = [
-          {'q':'Is ' + n.title + ' free to read online?', 'a':'Yes. ' + n.title + ' by ' + n.author + ' is completely free to read online at AST Novels — full text in a beautiful reader, no account or signup needed.'},
-          {'q':'Who wrote ' + n.title + '?', 'a':n.title + ' was written by ' + n.author + (n.year ? ' and first published in ' + n.year + '.' : '.') + ' Read it free on AST Novels.'},
-          {'q':'Do I need an account to read ' + n.title + '?', 'a':'No. Unlike many free-reading sites, AST Novels never asks for an account — open ' + n.title + ' and start reading instantly, on any device.'}
+          {'q':'Is ' + n.title + ' free to read online?', 'a':'Yes. ' + n.title + ' by ' + n.author + ' is completely free to read online at AST Library — full text in a beautiful reader, no account or signup needed.'},
+          {'q':'Who wrote ' + n.title + '?', 'a':n.title + ' was written by ' + n.author + (n.year ? ' and first published in ' + n.year + '.' : '.') + ' Read it free on AST Library.'},
+          {'q':'Do I need an account to read ' + n.title + '?', 'a':'No. Unlike many free-reading sites, AST Library never asks for an account — open ' + n.title + ' and start reading instantly, on any device.'}
         ];
         if(n.language === 'ur'){
-          faqQs.push({'q':'Is ' + n.title + ' in original Urdu script?', 'a':'Yes. ' + n.title + ' is presented in original Urdu script on AST Novels, exactly as written — not transliterated into Roman Urdu.'});
+          faqQs.push({'q':'Is ' + n.title + ' in original Urdu script?', 'a':'Yes. ' + n.title + ' is presented in original Urdu script on AST Library, exactly as written — not transliterated into Roman Urdu.'});
         }
         if(total > 1){
-          faqQs.push({'q':'How many chapters does ' + n.title + ' have?', 'a':n.title + ' has ' + total + ' chapters on AST Novels, all free to read with your progress saved in your browser.'});
+          faqQs.push({'q':'How many chapters does ' + n.title + ' have?', 'a':n.title + ' has ' + total + ' chapters on AST Library, all free to read with your progress saved in your browser.'});
         }
         var faq = document.createElement('script');
         faq.type = 'application/ld+json';
@@ -669,6 +670,9 @@
         '</a>';
       }).join('');
 
+      var creditLine = (n.author === 'Arman Ishaq')
+        ? '<p class="author-credit' + (u ? ' urdu' : '') + '">' + (u ? 'ارمان اسحاق — 17 سال کی عمر میں ناول لکھنے والا' : 'Written by Arman Ishaq — a 17-year-old author from Swabi, Pakistan, who wrote his first novel at 15.') + '</p>'
+        : '';
       var P1 = window.ASTPlatform;
       var totalWords = countWords(chapters);
       var readTimeTag = (P1 && totalWords > 0)
@@ -685,6 +689,7 @@
             '<div class="kicker">' + AN.esc(n.genre) + ' · ' + (u ? 'Urdu' : 'English') + '</div>' +
             '<h1 class="' + (u ? 'urdu' : '') + '">' + AN.esc(n.title) + '</h1>' +
             '<div class="author">by <b>' + AN.esc(n.author) + '</b></div>' +
+            creditLine +
             starsHTML(n.rating_avg, n.rating_count) +
             '<div id="rateWidget"></div>' +
             '<div class="tag-row">' +
@@ -699,10 +704,9 @@
               '<a class="btn" href="/read.html?id=' + AN.esc(n.slug) + '&ch=' + startCh + '">' +
                 (prog ? 'Continue reading — Ch. ' + (startCh + 1) : 'Start reading') + ' &rarr;</a>' +
               '<a class="btn btn-ghost" href="/library.html">All novels</a>' +
-              '<button class="btn btn-ghost" id="dlBtn" type="button">Download</button>' +
               '<button class="btn btn-ghost" id="shareBtn" type="button">Share</button>' +
               '<a class="btn btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=' +
-                encodeURIComponent('Read ' + n.title + ' by ' + n.author + ' free on AST Novels: ' + pageUrl) + '">WhatsApp</a>' +
+                encodeURIComponent('Read ' + n.title + ' by ' + n.author + ' free on AST Library: ' + pageUrl) + '">WhatsApp</a>' +
             '</div>' +
             (prog ? '<div class="progress-note">You left off at chapter ' + (prog.ch + 1) + ' of ' + total + '.</div>' : '') +
           '</div>' +
@@ -764,37 +768,11 @@
         });
       })();
 
-      /* Offline download: cache the novel's data + cover via the Cache API. */
-      (function(){
-        var P = window.ASTPlatform;
-        var dlBtn = document.getElementById('dlBtn');
-        if(!dlBtn || !P) return;
-        function paint(){
-          var done = P.isDownloaded(n.slug);
-          dlBtn.textContent = done ? 'Downloaded ✓' : 'Download';
-          dlBtn.classList.toggle('dl-on', done);
-        }
-        paint();
-        dlBtn.addEventListener('click', function(){
-          dlBtn.disabled = true;
-          dlBtn.textContent = 'Saving…';
-          if(P.isDownloaded(n.slug)){
-            P.removeDownload(n.slug).then(function(){ dlBtn.disabled = false; paint(); showToast('Removed from downloads'); });
-          } else {
-            P.downloadNovel(n.slug, n).then(function(){
-              dlBtn.disabled = false; paint(); showToast('Saved for offline reading');
-            }).catch(function(){
-              dlBtn.disabled = false; paint(); showToast('Could not save — check your connection');
-            });
-          }
-        });
-      })();
-
       /* Share: Web Share API with clipboard fallback + toast. */
       var shareBtn = document.getElementById('shareBtn');
       if(shareBtn){
         shareBtn.addEventListener('click', function(){
-          var shareData = { title: n.title + ' by ' + n.author + ' — AST Novels', text: 'Read ' + n.title + ' by ' + n.author + ' free on AST Novels.', url: pageUrl };
+          var shareData = { title: n.title + ' by ' + n.author + ' — AST Library', text: 'Read ' + n.title + ' by ' + n.author + ' free on AST Library.', url: pageUrl };
           function copyFallback(){
             function done(){ showToast('Link copied to clipboard'); }
             if(navigator.clipboard && navigator.clipboard.writeText){
@@ -829,5 +807,5 @@
     renderNovel();
   });
 
-  window.ASTNovelsSite = { loadCatalog: loadCatalog, loadNovel: loadNovel, getProgress: getProgress, readChapters: readChapters, countWords: countWords };
+  window.ASTLibrarySite = { loadCatalog: loadCatalog, loadNovel: loadNovel, getProgress: getProgress, readChapters: readChapters, countWords: countWords };
 })();
