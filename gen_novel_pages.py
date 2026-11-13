@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""Generate 15 static per-novel SEO landing pages at novels/<slug>.html."""
+"""Generate static per-novel SEO landing pages at novels/<slug>.html."""
 import json, os, html
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+
+def _cut(s, n):
+    """Cut to n chars at a word boundary (never mid-word)."""
+    if len(s) <= n:
+        return s
+    return s[:n].rsplit(" ", 1)[0]
+
 SITE = "https://ast-novels.vercel.app"
 
 # Original 2-3 sentence descriptions, written fresh for these pages.
@@ -14,9 +21,9 @@ SEO_DESC = {
     "the old man he lived with and hid the body under the floorboards. But in the silence after the perfect "
     "crime, a sound begins: a heartbeat, growing louder and louder."),
 "chandni-raat": ("ہر چاندنی رات دادا جان چھت پر دیا کیوں جلاتے تھے؟ ایک لڑکے، پرانی کتابوں اور ایک پرانے وعدے کی "
-    "محبت بھری کہانی — اے ایس ٹی نوولز کی اصل اردو کہانی، مفت پڑھیں۔",
+    "محبت بھری کہانی — اے ایس ٹی لائبریری کی اصل اردو کہانی، مفت پڑھیں۔",
     "Why did Dada Jan light a lamp on the rooftop every moonlit night? A warm original Urdu story of a boy, "
-    "old books, and an old promise — free to read on AST Novels."),
+    "old books, and an old promise — free to read on AST Library."),
 "pride-and-prejudice": ("Elizabeth Bennet is sharp, witty, and determined to marry for love — not money. When the "
     "proud, wealthy Mr. Darcy enters her life, first impressions clash spectacularly. Austen's most beloved novel "
     "is a sparkling battle of pride, prejudice, and slow-burning romance."),
@@ -64,7 +71,7 @@ NAV = """<div class="topline"></div>
   <div class="nav-inner">
     <a class="brand" href="../index.html">
       <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#B98A2F" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span>
-      <span class="brand-name">AST <span>Novels</span></span>
+      <span class="brand-name">AST <span>Library</span></span>
     </a>
     <div class="nav-links">
       <a href="../index.html">Home</a>
@@ -88,7 +95,7 @@ NAV = """<div class="topline"></div>
 FOOTER = """<footer>
   <div class="foot-inner">
     <div class="foot-brand">
-      <a class="brand" href="../index.html"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#B98A2F" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span><span class="brand-name">AST <span>Novels</span></span></a>
+      <a class="brand" href="../index.html"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#B98A2F" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5v13z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg></span><span class="brand-name">AST <span>Library</span></span></a>
       <p>A quiet library of Urdu and English novels — free to read, forever. Crafted by AST Family Studio.</p>
     </div>
     <div class="foot-col"><h4>Library</h4><a href="../library.html">All novels</a><a href="../stats.html">Reading stats</a><a href="#" id="installAppLink">Install app</a><a href="../index.html">Home</a><a href="../about.html">About</a></div>
@@ -118,10 +125,10 @@ for n in catalog:
     if isinstance(desc_raw, tuple):
         desc_ur, desc_en = desc_raw
         desc = desc_ur + " " + desc_en
-        desc_meta = (desc_ur + " " + desc_en)[:155]
+        desc_meta = _cut(desc_ur + " " + desc_en, 155)
     else:
         desc = desc_raw
-        desc_meta = desc_raw[:155]
+        desc_meta = _cut(desc_raw, 155)
     # chapter count + word count from the novel JSON
     ch_count = 0
     total_words = 0
@@ -146,9 +153,12 @@ for n in catalog:
 
     page_url = SITE + "/novels/" + slug + ".html"
     read_url = "../novel.html?id=" + slug
-    title_tag = "%s by %s — Read Free | AST Novels" % (title, author)
-    meta_desc = "Read %s by %s online free at AST Novels. %s" % (title if not u else n.get("title_en", title), author, desc_meta)
-    meta_desc = meta_desc[:158]
+    title_tag = "%s by %s — Read Free | AST Library" % (title, author)
+    meta_desc = "Read %s by %s online free at AST Library. %s" % (title if not u else n.get("title_en", title), author, desc_meta)
+    meta_desc = _cut(meta_desc, 158)
+    kw_lang = "urdu novels, read urdu novels, urdu novels free" if u else "english novels, read english novels, free novels"
+    kw_parts = [title, author] + kw_lang.split(", ") + ["novel reader", "pakistani novels", "AST Library"]
+    keywords = ", ".join(dict.fromkeys(kw_parts))
     lang_label = "Urdu" if u else "English"
     in_lang = "ur" if u else "en"
     html_lang = "ur" if u else "en"
@@ -192,10 +202,11 @@ for n in catalog:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>%(title_tag)s</title>
 <meta name="description" content="%(meta_desc)s">
+<meta name="keywords" content="%(keywords)s">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="%(page_url)s">
 <meta property="og:type" content="book">
-<meta property="og:site_name" content="AST Novels">
+<meta property="og:site_name" content="AST Library">
 <meta property="og:locale" content="%(og_locale)s">
 <meta property="og:title" content="%(title_tag)s">
 <meta property="og:description" content="%(meta_desc)s">
@@ -245,8 +256,21 @@ for n in catalog:
     </div>
     <div class="chapter-section">
       <h2 class="serif sec-title" style="font-size:28px;margin-bottom:14px">Why read it here</h2>
-      <p class="sec-sub" style="max-width:720px">Read <b>%(title)s</b> free on AST Novels — the full text in a beautiful, distraction-free reader with day, sepia and night themes, read-aloud, offline reading and your progress saved automatically. No account, no signup, no cost.</p>
+      <p class="sec-sub" style="max-width:720px">Read <b>%(title)s</b> free on AST Library — the full text in a beautiful, distraction-free reader with day, sepia and night themes, read-aloud, offline reading and your progress saved automatically. No account, no signup, no cost.</p>
       <p><a class="btn" href="%(read_url)s">Read %(short_title)s now &rarr;</a></p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 class="serif sec-title" style="font-size:24px;margin-bottom:14px">More novels to read</h2>
+    <div class="novel-actions">
+      <a class="btn btn-ghost" href="../novel/amanat-e-noor">اَمانتِ نُور</a>
+      <a class="btn btn-ghost" href="../novel/jala-hua-khat">جلا ہوا خط</a>
+      <a class="btn btn-ghost" href="../novel/har-jahan">ہر جہاں</a>
+      <a class="btn btn-ghost" href="../novel/wo-diary">وہ ڈائری</a>
+      <a class="btn btn-ghost" href="../library.html">All novels</a>
     </div>
   </div>
 </section>
@@ -260,6 +284,7 @@ for n in catalog:
         "dir_attr": dir_attr,
         "title_tag": esc(title_tag),
         "meta_desc": esc(meta_desc),
+        "keywords": esc(keywords),
         "page_url": page_url,
         "og_locale": "ur_PK" if u else "en_US",
         "cover_abs": SITE + "/" + cover,
